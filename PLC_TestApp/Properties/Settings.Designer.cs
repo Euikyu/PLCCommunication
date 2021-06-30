@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace PLCCommunication.Properties
+namespace PLC_TestApp.Properties
 {
 
 
