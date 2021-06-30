@@ -20,15 +20,5 @@ namespace PLCCommunication.Mitsubishi
         /// Reconnecting count when disconnected.
         /// </summary>
         public ushort ReconnectCount { get; set; }
-
-        public SerialSetting()
-        {
-            this.PortName = "COM1";
-            this.BaudRate = 9600;
-            this.DataBits = 8;
-            this.Parity = Parity.None;
-            this.StopBits = StopBits.One;
-            this.Handshake = Handshake.None;
-        }
     }
 }

@@ -30,7 +30,6 @@ namespace PLCCommunication.Mitsubishi.Controls
 
         private char m_SeparateChar;
         private int m_SelectedSeparateCharIndex;
-        private bool m_TestBool;
         #endregion
 
         #region Properties

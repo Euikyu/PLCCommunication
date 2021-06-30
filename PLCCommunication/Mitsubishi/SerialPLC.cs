@@ -79,7 +79,30 @@ namespace PLCCommunication.Mitsubishi
         }
         #endregion
 
+        public SerialPLC()
+        {
+            m_Setting = new SerialSetting();
 
+            this.PortName = "COM1";
+            this.BaudRate = 9600;
+            this.DataBits = 8;
+            this.Parity = Parity.None;
+            this.StopBits = StopBits.One;
+            this.Handshake = Handshake.None;
+            this.Timeout = 1000;
+        }
+        public SerialPLC(string portName, int baudRate, int dataBits = 8, Parity parity = Parity.None, StopBits stopBits = StopBits.One, Handshake handshake = Handshake.None, uint timeout = 4000)
+        {
+            m_Setting = new SerialSetting();
+
+            this.PortName = portName;
+            this.BaudRate = baudRate;
+            this.Parity = parity;
+            this.DataBits = dataBits;
+            this.StopBits = stopBits;
+            this.Handshake = handshake;
+            this.Timeout = timeout;
+        }
 
         public void Dispose()
         {
@@ -93,7 +116,7 @@ namespace PLCCommunication.Mitsubishi
         {
             if (!File.Exists(_DefaultPath + @"\Mitsubishi_Serial.xml"))
             {
-                Save();
+                this.Save();
             }
             XmlSerializer serializer = new XmlSerializer(typeof(SerialSetting));
             using (var sr = new StreamReader(_DefaultPath + @"\Mitsubishi_Serial.xml"))
@@ -101,12 +124,11 @@ namespace PLCCommunication.Mitsubishi
                 m_Setting = serializer.Deserialize(sr) as SerialSetting ?? m_Setting;
             }
         }
-
         public void Load(string filePath)
         {
             if (!File.Exists(filePath))
             {
-                Save();
+                this.Save(filePath);
             }
             XmlSerializer serializer = new XmlSerializer(typeof(SerialSetting));
             using (var sr = new StreamReader(filePath))
@@ -114,8 +136,6 @@ namespace PLCCommunication.Mitsubishi
                 m_Setting = serializer.Deserialize(sr) as SerialSetting ?? m_Setting;
             }
         }
-
-
         public void Save()
         {
             Directory.CreateDirectory(_DefaultPath);
@@ -125,7 +145,6 @@ namespace PLCCommunication.Mitsubishi
                 serializer.Serialize(sw, m_Setting ?? new SerialSetting());
             }
         }
-
         public void Save(string filePath)
         {
             FileInfo fi = new FileInfo(filePath);
@@ -199,7 +218,15 @@ namespace PLCCommunication.Mitsubishi
 
         private void Serial_DataReceived(object sender, SerialDataReceivedEventArgs e)
         {
-            
+            if(e.EventType == SerialData.Chars)
+            {
+                var aa = m_Serial.Encoding.GetBytes(m_Serial.ReadExisting());
+                
+            }
+            else
+            {
+                this.Disconnect();
+            }
         }
 
         private void OnCheckProcess()
@@ -210,7 +237,7 @@ namespace PLCCommunication.Mitsubishi
                 while (true)
                 {
                     //it change false only stream.Read() or stream.Write() is failed.
-                    if (!IsConnected)
+                    if (!(bool)IsConnected)
                     {
                         //retry communicating
                         try

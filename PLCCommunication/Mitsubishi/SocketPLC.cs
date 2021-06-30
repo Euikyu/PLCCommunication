@@ -128,6 +128,8 @@ namespace PLCCommunication.Mitsubishi
         /// <param name="timeout">Connection max delay value.</param>
         public SocketPLC(string ipAddress, int portNum, EPLCProtocolFormat protocolFormat = EPLCProtocolFormat.Binary, byte networkNo = 0x00, byte pcNo = 0xFF, uint timeout = 4000)
         {
+            m_Setting = new SocketSetting();
+
             this.IP = ipAddress;
             this.PortNumber = portNum;
             this.ProtocolFormat = protocolFormat;
