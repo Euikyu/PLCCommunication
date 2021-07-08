@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:PLC_TestApp"
         mc:Ignorable="d"
-        Title="TEST_UI" Height="450" Width="800">
+        Title="TEST_UI" Height="450" Width="800" Closing="Window_Closing">
     <Grid>
         <Button Content="Connect" Margin="10,10" Padding="20,5" HorizontalAlignment="Left" VerticalAlignment="Top" Click="Button_Click"/>
     </Grid>

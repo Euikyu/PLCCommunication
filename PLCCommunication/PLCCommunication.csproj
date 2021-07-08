@@ -51,6 +51,9 @@
     <Compile Include="IPLCPacket.cs" />
     <Compile Include="Mitsubishi\Controls\Collections.cs" />
     <Compile Include="Mitsubishi\Controls\Converters.cs" />
+    <Compile Include="Mitsubishi\Controls\SerialTester.xaml.cs">
+      <DependentUpon>SerialTester.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Mitsubishi\Controls\SocketTester.xaml.cs">
       <DependentUpon>SocketTester.xaml</DependentUpon>
     </Compile>
@@ -59,10 +62,15 @@
     <Compile Include="Mitsubishi\SerialSetting.cs" />
     <Compile Include="Mitsubishi\SocketPLC.cs" />
     <Compile Include="Mitsubishi\SocketSetting.cs" />
+    <Compile Include="Panasonic\PLCPacket.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup />
   <ItemGroup>
+    <Page Include="Mitsubishi\Controls\SerialTester.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="Mitsubishi\Controls\SocketTester.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>

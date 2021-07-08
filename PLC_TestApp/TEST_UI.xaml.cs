@@ -30,7 +30,14 @@ namespace PLC_TestApp
 
         private void Button_Click(object sender, RoutedEventArgs e)
         {
+            m_PLC.Load();
             m_PLC.Connect();
+        }
+
+        private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+        {
+            m_PLC.Save();
+            m_PLC.Dispose();
         }
     }
 }

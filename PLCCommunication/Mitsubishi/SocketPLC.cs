@@ -19,7 +19,7 @@ namespace PLCCommunication.Mitsubishi
     {
         #region Fields
         private readonly string _DefaultPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + @"\Check Box";
-        private readonly object m_CommunicateLock = new object();
+        private readonly object _CommunicationLock = new object();
         private TcpClient m_Client;
         private NetworkStream m_Stream;
 
@@ -456,17 +456,17 @@ namespace PLCCommunication.Mitsubishi
             {
                 case EPLCProtocolFormat.ASCII:
                     string strHeader = "5000" + NetworkNo.ToString("X2") + PCNo.ToString("X2") + "03FF" + "00";
-                    string strData = Timeout.ToString("X4") + "1401";
+                    string strData = m_Setting.Timeout.ToString("X4") + "1401";
                     if (data.Value is IEnumerable<bool> || dataType == typeof(bool))
                     {
-                        strData += "0001" + this.ConvertStringFromAddress(data);
+                        strData += "0001" + PLCConverter.ConvertStringFromAddress(data);
                         if (data.Value.GetType() == typeof(bool))
                         {
-                            strData += "0001" + this.Convert1BitStringFromBooleanData((bool)data.Value);
+                            strData += "0001" + PLCConverter.Convert1BitStringFromBooleanData((bool)data.Value);
                         }
                         else
                         {
-                            var sendData = this.ConvertNBitStringFromBooleanArrayData(data.Value as IEnumerable<bool>);
+                            var sendData = PLCConverter.ConvertNBitStringFromBooleanArrayData(data.Value as IEnumerable<bool>);
                             devCount = (ushort)sendData.Length;
                             strData += devCount.ToString("X4") + sendData;
                         }
@@ -475,10 +475,10 @@ namespace PLCCommunication.Mitsubishi
                     }
                     else
                     {
-                        strData += "0000" + this.ConvertStringFromAddress(data);
+                        strData += "0000" + PLCConverter.ConvertStringFromAddress(data);
                         string sendData = string.Empty;
-                        if (data.Value is IEnumerable itemList && !(dataType == typeof(string) || data.Value is IEnumerable<char> || data.Value is IEnumerable<byte>)) sendData = this.ConvertMultiWordsStringFromDataList(itemList);
-                        else sendData = this.ConvertMultiWordsStringFromData(data.Value);
+                        if (data.Value is IEnumerable itemList && !(dataType == typeof(string) || data.Value is IEnumerable<char> || data.Value is IEnumerable<byte>)) sendData = PLCConverter.ConvertMultiWordsStringFromDataList(itemList);
+                        else sendData = PLCConverter.ConvertMultiWordsStringFromData(data.Value);
                         devCount = (ushort)(sendData.Length / 4);
                         strData += devCount.ToString("X4") + sendData;
 
@@ -491,22 +491,22 @@ namespace PLCCommunication.Mitsubishi
 
                 case EPLCProtocolFormat.Binary:
                     List<byte> binHeader = new List<byte>() { 0x50, 0x00, NetworkNo, PCNo, 0xFF, 0x03, 0x00 };
-                    List<byte> binData = new List<byte>(BitConverter.GetBytes(Timeout)) { 0x01, 0x14 };
+                    List<byte> binData = new List<byte>(BitConverter.GetBytes(m_Setting.Timeout)) { 0x01, 0x14 };
 
                     if (data.Value is IEnumerable<bool> || dataType == typeof(bool))
                     {
                         binData.Add(0x01);
                         binData.Add(0x00);
-                        binData.AddRange(this.ConvertByteArrayFromAddress(data));
+                        binData.AddRange(PLCConverter.ConvertByteArrayFromAddress(data));
                         if (data.Value.GetType() == typeof(bool))
                         {
                             binData.Add(0x01);
                             binData.Add(0x00);
-                            binData.Add(this.Convert1BitByteFromBooleanData((bool)data.Value));
+                            binData.Add(PLCConverter.Convert1BitByteFromBooleanData((bool)data.Value));
                         }
                         else
                         {
-                            var sendData = this.ConvertNBitByteArrayFromBooleanArrayData(data.Value as IEnumerable<bool>);
+                            var sendData = PLCConverter.ConvertNBitByteArrayFromBooleanArrayData(data.Value as IEnumerable<bool>);
                             devCount = (ushort)(data.Value as IEnumerable<bool>).Count();
                             binData.AddRange(BitConverter.GetBytes(devCount));
                             binData.AddRange(sendData);
@@ -518,11 +518,11 @@ namespace PLCCommunication.Mitsubishi
                     {
                         binData.Add(0x00);
                         binData.Add(0x00);
-                        binData.AddRange(this.ConvertByteArrayFromAddress(data));
+                        binData.AddRange(PLCConverter.ConvertByteArrayFromAddress(data));
 
                         byte[] sendData = null;
-                        if (data.Value is IEnumerable itemList && !(dataType == typeof(string) || data.Value is IEnumerable<char> || data.Value is IEnumerable<byte>)) sendData = this.ConvertMultiWordsByteArrayFromDataList(itemList);
-                        else sendData = this.ConvertMultiWordsByteArrayFromData(data.Value);
+                        if (data.Value is IEnumerable itemList && !(dataType == typeof(string) || data.Value is IEnumerable<char> || data.Value is IEnumerable<byte>)) sendData = PLCConverter.ConvertMultiWordsByteArrayFromDataList(itemList);
+                        else sendData = PLCConverter.ConvertMultiWordsByteArrayFromData(data.Value);
                         devCount = (ushort)(sendData.Length / 2);
                         binData.AddRange(BitConverter.GetBytes(devCount));
                         binData.AddRange(sendData);
@@ -541,7 +541,7 @@ namespace PLCCommunication.Mitsubishi
                     break;
             }
 
-            lock (m_CommunicateLock)
+            lock (_CommunicationLock)
             {
                 m_Stream.Write(sendMsg, 0, sendMsg.Length);
 
@@ -558,15 +558,15 @@ namespace PLCCommunication.Mitsubishi
             {
                 case EPLCProtocolFormat.ASCII:
                     string strHeader = "5000" + NetworkNo.ToString("X2") + PCNo.ToString("X2") + "03FF" + "00";
-                    string strData = Timeout.ToString("X4") + "0401" + "0000" + this.ConvertStringFromAddress(data) + data.WordCount.ToString("X4");
+                    string strData = m_Setting.Timeout.ToString("X4") + "0401" + "0000" + PLCConverter.ConvertStringFromAddress(data) + data.WordCount.ToString("X4");
                     msgDataLength = (ushort)strData.Length;
                     sendMsg = Encoding.ASCII.GetBytes(strHeader + msgDataLength.ToString("X4") + strData);
                     break;
 
                 case EPLCProtocolFormat.Binary:
                     List<byte> binHeader = new List<byte>() { 0x50, 0x00, NetworkNo, PCNo, 0xFF, 0x03, 0x00 };
-                    List<byte> binData = new List<byte>(BitConverter.GetBytes(Timeout)) { 0x01, 0x04, 0x00, 0x00 };
-                    binData.AddRange(this.ConvertByteArrayFromAddress(data));
+                    List<byte> binData = new List<byte>(BitConverter.GetBytes(m_Setting.Timeout)) { 0x01, 0x04, 0x00, 0x00 };
+                    binData.AddRange(PLCConverter.ConvertByteArrayFromAddress(data));
                     binData.AddRange(BitConverter.GetBytes(data.WordCount));
 
                     msgDataLength = (ushort)binData.Count;
@@ -583,7 +583,7 @@ namespace PLCCommunication.Mitsubishi
                     break;
             }
 
-            lock (m_CommunicateLock)
+            lock (_CommunicationLock)
             {
                 m_Stream.Write(sendMsg, 0, sendMsg.Length);
 
@@ -633,7 +633,7 @@ namespace PLCCommunication.Mitsubishi
                 {
                     case EPLCProtocolFormat.ASCII:
                         strHeader = "5000" + NetworkNo.ToString("X2") + PCNo.ToString("X2") + "03FF" + "00";
-                        strData = Timeout.ToString("X4") + "1402" + "0001";
+                        strData = m_Setting.Timeout.ToString("X4") + "1402" + "0001";
                         string strAddress = string.Empty;
 
                         foreach (var boolData in boolDataList)
@@ -643,13 +643,13 @@ namespace PLCCommunication.Mitsubishi
                                 int len = bListVal.Count();
                                 for (int i = 0; i < len; i++)
                                 {
-                                    strAddress += this.ConvertStringFromAddress(boolData, i) + (bListVal.ElementAt(i) ? "01" : "00");
+                                    strAddress += PLCConverter.ConvertStringFromAddress(boolData, i) + (bListVal.ElementAt(i) ? "01" : "00");
                                     bitCount++;
                                 }
                             }
                             else if (boolData.Value is bool bVal)
                             {
-                                strAddress += this.ConvertStringFromAddress(boolData) + (bVal ? "01" : "00");
+                                strAddress += PLCConverter.ConvertStringFromAddress(boolData) + (bVal ? "01" : "00");
                                 bitCount++;
                             }
                         }
@@ -662,7 +662,7 @@ namespace PLCCommunication.Mitsubishi
                         break;
                     case EPLCProtocolFormat.Binary:
                         binHeader = new List<byte>() { 0x50, 0x00, NetworkNo, PCNo, 0xFF, 0x03, 0x00 };
-                        binData = new List<byte>(BitConverter.GetBytes(Timeout)) { 0x02, 0x14, 0x01, 0x00 };
+                        binData = new List<byte>(BitConverter.GetBytes(m_Setting.Timeout)) { 0x02, 0x14, 0x01, 0x00 };
                         List<byte> binAddress = new List<byte>();
                         foreach (var boolData in boolDataList)
                         {
@@ -671,7 +671,7 @@ namespace PLCCommunication.Mitsubishi
                                 int len = bListVal.Count();
                                 for (int i = 0; i < len; i++)
                                 {
-                                    binAddress.AddRange(this.ConvertByteArrayFromAddress(boolData, i));
+                                    binAddress.AddRange(PLCConverter.ConvertByteArrayFromAddress(boolData, i));
                                     binAddress.Add((byte)boolData.DeviceCode);
                                     binAddress.Add(bListVal.ElementAt(i) ? (byte)0x01 : (byte)0x00);
                                     bitCount++;
@@ -679,7 +679,7 @@ namespace PLCCommunication.Mitsubishi
                             }
                             else if (boolData.Value is bool bVal)
                             {
-                                binAddress.AddRange(this.ConvertByteArrayFromAddress(boolData));
+                                binAddress.AddRange(PLCConverter.ConvertByteArrayFromAddress(boolData));
                                 binAddress.Add((byte)boolData.DeviceCode);
                                 binAddress.Add(bVal ? (byte)0x01 : (byte)0x00);
                                 bitCount++;
@@ -704,7 +704,7 @@ namespace PLCCommunication.Mitsubishi
                         break;
                 }
 
-                lock (m_CommunicateLock)
+                lock (_CommunicationLock)
                 {
                     m_Stream.Write(sendMsg, 0, sendMsg.Length);
 
@@ -721,7 +721,7 @@ namespace PLCCommunication.Mitsubishi
                 {
                     case EPLCProtocolFormat.ASCII:
                         strHeader = "5000" + NetworkNo.ToString("X2") + PCNo.ToString("X2") + "03FF" + "00";
-                        strData = Timeout.ToString("X4") + "1402" + "0000";
+                        strData = m_Setting.Timeout.ToString("X4") + "1402" + "0000";
                         string strWordAddress = string.Empty;
                         string strDWordAddress = string.Empty;
 
@@ -734,17 +734,17 @@ namespace PLCCommunication.Mitsubishi
                                 int tmpCount = 0;
                                 if (vals is IEnumerable<char> || vals is string)
                                 {
-                                    tmpData = this.ConvertMultiWordsStringFromData(vals);
+                                    tmpData = PLCConverter.ConvertMultiWordsStringFromData(vals);
                                     while (tmpData.Length >= 8)
                                     {
-                                        strDWordAddress += this.ConvertStringFromAddress(data, tmpCount * 2) + tmpData.Substring(4, 4) + tmpData.Substring(0, 4);
+                                        strDWordAddress += PLCConverter.ConvertStringFromAddress(data, tmpCount * 2) + tmpData.Substring(4, 4) + tmpData.Substring(0, 4);
                                         tmpData = tmpData.Substring(8);
                                         dwordCount++;
                                         tmpCount++;
                                     }
                                     if (tmpData.Length > 0)
                                     {
-                                        strWordAddress += this.ConvertStringFromAddress(data, tmpCount * 2) + tmpData;
+                                        strWordAddress += PLCConverter.ConvertStringFromAddress(data, tmpCount * 2) + tmpData;
                                         wordCount++;
                                     }
                                 }
@@ -754,11 +754,11 @@ namespace PLCCommunication.Mitsubishi
                                     {
                                         if (val.GetType() == typeof(long) || val.GetType() == typeof(ulong) || val.GetType() == typeof(double))
                                         {
-                                            var tmpArr = this.Convert2WordsStringFrom4WordsData(val);
-                                            strDWordAddress += this.ConvertStringFromAddress(data, tmpCount);
+                                            var tmpArr = PLCConverter.Convert2WordsStringFrom4WordsData(val);
+                                            strDWordAddress += PLCConverter.ConvertStringFromAddress(data, tmpCount);
                                             strDWordAddress += tmpArr[0];
                                             tmpCount += 2;
-                                            strDWordAddress += this.ConvertStringFromAddress(data, tmpCount);
+                                            strDWordAddress += PLCConverter.ConvertStringFromAddress(data, tmpCount);
                                             strDWordAddress += tmpArr[1];
                                             tmpCount += 2;
                                             dwordCount += 2;
@@ -766,15 +766,15 @@ namespace PLCCommunication.Mitsubishi
                                         }
                                         try
                                         {
-                                            tmpData = this.Convert2WordsStringFromData(val);
-                                            strDWordAddress += this.ConvertStringFromAddress(data, tmpCount) + tmpData;
+                                            tmpData = PLCConverter.Convert2WordsStringFromData(val);
+                                            strDWordAddress += PLCConverter.ConvertStringFromAddress(data, tmpCount) + tmpData;
                                             tmpCount += 2;
                                             dwordCount++;
                                         }
                                         catch
                                         {
-                                            tmpData = this.Convert1WordStringFromData(val);
-                                            strWordAddress += this.ConvertStringFromAddress(data, tmpCount) + tmpData;
+                                            tmpData = PLCConverter.Convert1WordStringFromData(val);
+                                            strWordAddress += PLCConverter.ConvertStringFromAddress(data, tmpCount) + tmpData;
                                             tmpCount++;
                                             wordCount++;
                                         }
@@ -785,23 +785,23 @@ namespace PLCCommunication.Mitsubishi
                             {
                                 if (data.Value.GetType() == typeof(long) || data.Value.GetType() == typeof(ulong) || data.Value.GetType() == typeof(double))
                                 {
-                                    var tmpArr = this.Convert2WordsStringFrom4WordsData(data.Value);
-                                    strDWordAddress += this.ConvertStringFromAddress(data) + tmpArr[0];
-                                    strDWordAddress += this.ConvertStringFromAddress(data, 2);
+                                    var tmpArr = PLCConverter.Convert2WordsStringFrom4WordsData(data.Value);
+                                    strDWordAddress += PLCConverter.ConvertStringFromAddress(data) + tmpArr[0];
+                                    strDWordAddress += PLCConverter.ConvertStringFromAddress(data, 2);
                                     strDWordAddress += tmpArr[1];
                                     dwordCount += 2;
                                     continue;
                                 }
                                 try
                                 {
-                                    tmpData = this.Convert2WordsStringFromData(data.Value);
-                                    strDWordAddress += this.ConvertStringFromAddress(data) + tmpData;
+                                    tmpData = PLCConverter.Convert2WordsStringFromData(data.Value);
+                                    strDWordAddress += PLCConverter.ConvertStringFromAddress(data) + tmpData;
                                     dwordCount++;
                                 }
                                 catch
                                 {
-                                    tmpData = this.Convert1WordStringFromData(data.Value);
-                                    strWordAddress += this.ConvertStringFromAddress(data) + tmpData;
+                                    tmpData = PLCConverter.Convert1WordStringFromData(data.Value);
+                                    strWordAddress += PLCConverter.ConvertStringFromAddress(data) + tmpData;
                                     wordCount++;
                                 }
                             }
@@ -816,7 +816,7 @@ namespace PLCCommunication.Mitsubishi
 
                     case EPLCProtocolFormat.Binary:
                         binHeader = new List<byte>() { 0x50, 0x00, NetworkNo, PCNo, 0xFF, 0x03, 0x00 };
-                        binData = new List<byte>(BitConverter.GetBytes(Timeout)) { 0x02, 0x14, 0x00, 0x00 };
+                        binData = new List<byte>(BitConverter.GetBytes(m_Setting.Timeout)) { 0x02, 0x14, 0x00, 0x00 };
                         List<byte> binDWordAddress = new List<byte>();
                         List<byte> binWordAddress = new List<byte>();
 
@@ -829,10 +829,10 @@ namespace PLCCommunication.Mitsubishi
                                 int tmpCount = 0;
                                 if (vals is IEnumerable<char> || vals is string)
                                 {
-                                    tmpData = this.ConvertMultiWordsByteArrayFromData(vals);
+                                    tmpData = PLCConverter.ConvertMultiWordsByteArrayFromData(vals);
                                     while (tmpData.Count() >= 4)
                                     {
-                                        binDWordAddress.AddRange(this.ConvertByteArrayFromAddress(data, tmpCount * 2));
+                                        binDWordAddress.AddRange(PLCConverter.ConvertByteArrayFromAddress(data, tmpCount * 2));
                                         binDWordAddress.AddRange(tmpData.Take(4));
                                         tmpData = tmpData.Skip(4);
                                         dwordCount++;
@@ -840,7 +840,7 @@ namespace PLCCommunication.Mitsubishi
                                     }
                                     if (tmpData.Count() > 0)
                                     {
-                                        binWordAddress.AddRange(this.ConvertByteArrayFromAddress(data, tmpCount * 2));
+                                        binWordAddress.AddRange(PLCConverter.ConvertByteArrayFromAddress(data, tmpCount * 2));
                                         binWordAddress.AddRange(tmpData);
                                         wordCount++;
                                     }
@@ -851,11 +851,11 @@ namespace PLCCommunication.Mitsubishi
                                     {
                                         if (val.GetType() == typeof(long) || val.GetType() == typeof(ulong) || val.GetType() == typeof(double))
                                         {
-                                            var tmpArr = this.Convert2WordsByteArrayFrom4WordsData(val);
-                                            binDWordAddress.AddRange(this.ConvertByteArrayFromAddress(data, tmpCount));
+                                            var tmpArr = PLCConverter.Convert2WordsByteArrayFrom4WordsData(val);
+                                            binDWordAddress.AddRange(PLCConverter.ConvertByteArrayFromAddress(data, tmpCount));
                                             binDWordAddress.AddRange(tmpArr[0]);
                                             tmpCount += 2;
-                                            binDWordAddress.AddRange(this.ConvertByteArrayFromAddress(data, tmpCount));
+                                            binDWordAddress.AddRange(PLCConverter.ConvertByteArrayFromAddress(data, tmpCount));
                                             binDWordAddress.AddRange(tmpArr[1]);
                                             tmpCount += 2;
                                             dwordCount += 2;
@@ -865,16 +865,16 @@ namespace PLCCommunication.Mitsubishi
                                         {
                                             try
                                             {
-                                                tmpData = this.Convert2WordsByteArrayFromData(val);
-                                                binDWordAddress.AddRange(this.ConvertByteArrayFromAddress(data, tmpCount));
+                                                tmpData = PLCConverter.Convert2WordsByteArrayFromData(val);
+                                                binDWordAddress.AddRange(PLCConverter.ConvertByteArrayFromAddress(data, tmpCount));
                                                 binDWordAddress.AddRange(tmpData);
                                                 tmpCount += 2;
                                                 dwordCount++;
                                             }
                                             catch
                                             {
-                                                tmpData = this.Convert1WordByteArrayFromData(val);
-                                                binWordAddress.AddRange(this.ConvertByteArrayFromAddress(data, tmpCount));
+                                                tmpData = PLCConverter.Convert1WordByteArrayFromData(val);
+                                                binWordAddress.AddRange(PLCConverter.ConvertByteArrayFromAddress(data, tmpCount));
                                                 binWordAddress.AddRange(tmpData);
                                                 tmpCount++;
                                                 wordCount++;
@@ -887,25 +887,25 @@ namespace PLCCommunication.Mitsubishi
                             {
                                 if (data.Value.GetType() == typeof(long) || data.Value.GetType() == typeof(ulong) || data.Value.GetType() == typeof(double))
                                 {
-                                    var tmpArr = this.Convert2WordsByteArrayFrom4WordsData(data.Value);
-                                    binDWordAddress.AddRange(this.ConvertByteArrayFromAddress(data));
+                                    var tmpArr = PLCConverter.Convert2WordsByteArrayFrom4WordsData(data.Value);
+                                    binDWordAddress.AddRange(PLCConverter.ConvertByteArrayFromAddress(data));
                                     binDWordAddress.AddRange(tmpArr[0]);
-                                    binDWordAddress.AddRange(this.ConvertByteArrayFromAddress(data, 2));
+                                    binDWordAddress.AddRange(PLCConverter.ConvertByteArrayFromAddress(data, 2));
                                     binDWordAddress.AddRange(tmpArr[1]);
                                     dwordCount += 2;
                                     continue;
                                 }
                                 try
                                 {
-                                    tmpData = this.Convert2WordsByteArrayFromData(data.Value);
-                                    binDWordAddress.AddRange(this.ConvertByteArrayFromAddress(data));
+                                    tmpData = PLCConverter.Convert2WordsByteArrayFromData(data.Value);
+                                    binDWordAddress.AddRange(PLCConverter.ConvertByteArrayFromAddress(data));
                                     binDWordAddress.AddRange(tmpData);
                                     dwordCount++;
                                 }
                                 catch
                                 {
-                                    tmpData = this.Convert1WordByteArrayFromData(data.Value);
-                                    binWordAddress.AddRange(this.ConvertByteArrayFromAddress(data));
+                                    tmpData = PLCConverter.Convert1WordByteArrayFromData(data.Value);
+                                    binWordAddress.AddRange(PLCConverter.ConvertByteArrayFromAddress(data));
                                     binWordAddress.AddRange(tmpData);
                                     wordCount++;
                                 }
@@ -936,7 +936,7 @@ namespace PLCCommunication.Mitsubishi
                         break;
                 }
 
-                lock (m_CommunicateLock)
+                lock (_CommunicationLock)
                 {
                     m_Stream.Write(sendMsg, 0, sendMsg.Length);
 
@@ -960,7 +960,7 @@ namespace PLCCommunication.Mitsubishi
             {
                 case EPLCProtocolFormat.ASCII:
                     strHeader = "5000" + NetworkNo.ToString("X2") + PCNo.ToString("X2") + "03FF" + "00";
-                    strData = Timeout.ToString("X4") + "0403" + "0000";
+                    strData = m_Setting.Timeout.ToString("X4") + "0403" + "0000";
                     string strWordAddress = string.Empty;
                     string strDWordAddress = string.Empty;
 
@@ -971,11 +971,11 @@ namespace PLCCommunication.Mitsubishi
 
                         for (int i = 0; i < tmpDwordCount; i++)
                         {
-                            strDWordAddress += this.ConvertStringFromAddress(data, 2 * i);
+                            strDWordAddress += PLCConverter.ConvertStringFromAddress(data, 2 * i);
                         }
                         if (tmpWordCount > 0)
                         {
-                            strWordAddress += this.ConvertStringFromAddress(data, 2 * tmpDwordCount);
+                            strWordAddress += PLCConverter.ConvertStringFromAddress(data, 2 * tmpDwordCount);
                         }
                         dwordCount += tmpDwordCount;
                         wordCount += tmpWordCount;
@@ -990,7 +990,7 @@ namespace PLCCommunication.Mitsubishi
 
                 case EPLCProtocolFormat.Binary:
                     binHeader = new List<byte>() { 0x50, 0x00, NetworkNo, PCNo, 0xFF, 0x03, 0x00 };
-                    binData = new List<byte>(BitConverter.GetBytes(Timeout)) { 0x03, 0x04, 0x00, 0x00 };
+                    binData = new List<byte>(BitConverter.GetBytes(m_Setting.Timeout)) { 0x03, 0x04, 0x00, 0x00 };
                     List<byte> binDWordAddress = new List<byte>();
                     List<byte> binWordAddress = new List<byte>();
 
@@ -1001,11 +1001,11 @@ namespace PLCCommunication.Mitsubishi
 
                         for (int i = 0; i < tmpDwordCount; i++)
                         {
-                            binDWordAddress.AddRange(this.ConvertByteArrayFromAddress(data, 2 * i));
+                            binDWordAddress.AddRange(PLCConverter.ConvertByteArrayFromAddress(data, 2 * i));
                         }
                         if (tmpWordCount > 0)
                         {
-                            binWordAddress.AddRange(this.ConvertByteArrayFromAddress(data, 2 * tmpDwordCount));
+                            binWordAddress.AddRange(PLCConverter.ConvertByteArrayFromAddress(data, 2 * tmpDwordCount));
                         }
                         dwordCount += tmpDwordCount;
                         wordCount += tmpWordCount;
@@ -1033,7 +1033,7 @@ namespace PLCCommunication.Mitsubishi
                     break;
             }
 
-            lock (m_CommunicateLock)
+            lock (_CommunicationLock)
             {
                 m_Stream.Write(sendMsg, 0, sendMsg.Length);
 
@@ -1127,24 +1127,24 @@ namespace PLCCommunication.Mitsubishi
                         receiveData = Encoding.ASCII.GetString(m_CurrentData);
                         tmpStr = "D000" + NetworkNo.ToString("X2") + PCNo.ToString("X2") + "03FF" + "00";
 
-                        if (!receiveData.Contains(tmpStr)) throw new Exception("Receive wrong data." + Environment.NewLine + "Message : " + receiveData);
+                        if (!receiveData.Contains(tmpStr)) throw new Exception("Received wrong message. (Different header.)" + Environment.NewLine + "Message : " + receiveData);
                         int strCount = int.Parse(receiveData.Substring(tmpStr.Length, 4), System.Globalization.NumberStyles.HexNumber);
-                        if (strCount != receiveData.Length - tmpStr.Length - 4 || strCount != wordCount * 4 + 4) throw new Exception("Wrong data count." + Environment.NewLine + "Message : " + receiveData);
+                        if (strCount != receiveData.Length - tmpStr.Length - 4 || strCount != wordCount * 4 + 4) throw new Exception("Received wrong message. (Different message length.)" + Environment.NewLine + "Message : " + receiveData);
 
                         string errCode = receiveData.Substring(tmpStr.Length + 4, 4);
-                        if (errCode != "0000") throw new Exception("Receive error occur." + Environment.NewLine + "Message : " + receiveData.Substring(tmpStr.Length + 8));
+                        if (errCode != "0000") throw new Exception("Received error message." + Environment.NewLine + "Message : " + receiveData.Substring(tmpStr.Length + 8));
                         receiveData = receiveData.Substring(tmpStr.Length + 8);
 
-                        return this.ConvertHexStringToByteArray(receiveData);
+                        return PLCConverter.ConvertHexStringToByteArray(receiveData);
 
                     case EPLCProtocolFormat.Binary:
                         var tmpByteArray = new byte[] { 0xD0, 0x00, NetworkNo, PCNo, 0xFF, 0x03, 0x00 };
 
-                        for (int i = 0; i < tmpByteArray.Length; i++) if (tmpByteArray[i] != m_CurrentData[i]) throw new Exception("Receive wrong data.");
+                        for (int i = 0; i < tmpByteArray.Length; i++) if (tmpByteArray[i] != m_CurrentData[i]) throw new Exception("Received wrong message. (Different header.)" + Environment.NewLine + "Message : " + BitConverter.ToString(tmpByteArray));
                         ushort byteCount = BitConverter.ToUInt16(m_CurrentData.Skip(tmpByteArray.Length).Take(2).ToArray(), 0);
-                        if (byteCount != m_CurrentData.Length - tmpByteArray.Length - 2 || byteCount != wordCount * 2 + 2) throw new Exception("Wrong data count.");
+                        if (byteCount != m_CurrentData.Length - tmpByteArray.Length - 2 || byteCount != wordCount * 2 + 2) throw new Exception("Received wrong message. (Different message length.)" + Environment.NewLine + "Message : " + BitConverter.ToString(tmpByteArray));
                         int errInt = BitConverter.ToUInt16(m_CurrentData.Skip(tmpByteArray.Length + 2).Take(2).ToArray(), 0);
-                        if (errInt != 0) throw new Exception("Receive error occur." + Environment.NewLine + "Message : " + this.ConvertValueToString(m_CurrentData.Take(tmpByteArray.Length + 4).ToArray()));
+                        if (errInt != 0) throw new Exception("Received error message." + Environment.NewLine + "Error code : " + PLCConverter.ConvertValueToString(m_CurrentData.Take(tmpByteArray.Length + 4).ToArray()));
 
                         return m_CurrentData.Skip(tmpByteArray.Length + 4).ToArray();
                 }
@@ -1161,397 +1161,7 @@ namespace PLCCommunication.Mitsubishi
             }
         }
         #endregion
-
-        #region Convert Data Methods
-
-        #region Bit Units
-        private string Convert1BitStringFromBooleanData(bool boolData)
-        {
-            return boolData ? "1" : "0";
-        }
-        private byte Convert1BitByteFromBooleanData(bool boolData)
-        {
-            return (byte)(boolData ? 0x10 : 0x00);
-        }
-        private string ConvertNBitStringFromBooleanArrayData(IEnumerable<bool> boolArr)
-        {
-            string tmpStr = string.Empty;
-            foreach (var b in boolArr)
-            {
-                tmpStr += b ? "1" : "0";
-            }
-            return tmpStr;
-        }
-        private byte[] ConvertNBitByteArrayFromBooleanArrayData(IEnumerable<bool> boolArr)
-        {
-            int count = boolArr.Count();
-            byte[] tmpByteArr = count % 2 == 0 ? new byte[count / 2] : new byte[count / 2 + 1];
-            for (int i = 0; i < count; i += 2)
-            {
-                tmpByteArr[i / 2] = (byte)((boolArr.ElementAt(i) ? 0x10 : 0x00) + (i + 1 < count && boolArr.ElementAt(i + 1) ? 0x01 : 0x00));
-            }
-            return tmpByteArr;
-        }
-        #endregion
-
-        #region Byte Units
-        private byte Convert1ByteFromData(object val)
-        {
-            Type type = val.GetType();
-
-            if (type == typeof(byte))
-            {
-                return (byte)val;
-            }
-            else if (type == typeof(char))
-            {
-                char charData = (char)val;
-                return (byte)charData;
-            }
-            else
-            {
-                throw new Exception("Invalid data format.");
-            }
-        }
-        private string Convert1ByteStringFromData(object val)
-        {
-            return (this.Convert1ByteFromData(val)).ToString("X2");
-        }
-        #endregion
-
-        #region Word Units
-        private byte[] Convert1WordByteArrayFromData(object val)
-        {
-            Type type = val.GetType();
-
-            if (type == typeof(byte))
-            {
-                byte byteData = (byte)val;
-                return new byte[] { byteData, 0x00 };
-            }
-            else if (type == typeof(char))
-            {
-                char charData = (char)val;
-                byte byteData = (byte)charData;
-                return new byte[] { byteData, 0x00 };
-            }
-            else if (type == typeof(short))
-            {
-                short shortData = (short)val;
-                return BitConverter.GetBytes(shortData);
-            }
-            else if (type == typeof(ushort))
-            {
-                ushort shortData = (ushort)val;
-                return BitConverter.GetBytes(shortData);
-            }
-            else if (type == typeof(string) && (val as string).Length <= 2)
-            {
-                char[] charData = ((string)val).ToArray();
-                if (charData.Length % 2 == 0) return Encoding.ASCII.GetBytes(charData);
-                else
-                {
-                    byte[] tmpArr = new byte[charData.Length + 1];
-                    var asciiData = Encoding.ASCII.GetBytes(charData);
-                    for (int i = 0; i < asciiData.Length; i++) tmpArr[i] = asciiData[i];
-                    return tmpArr;
-                }
-            }
-            else if (val is IEnumerable<char> charArr && charArr.Count() <= 2)
-            {
-                char[] charData = charArr.ToArray();
-                if (charData.Length % 2 == 0) return Encoding.ASCII.GetBytes(charData);
-                else
-                {
-                    byte[] tmpArr = new byte[charData.Length + 1];
-                    var asciiData = Encoding.ASCII.GetBytes(charData);
-                    for (int i = 0; i < asciiData.Length; i++) tmpArr[i] = asciiData[i];
-                    return tmpArr;
-                }
-            }
-            else
-            {
-                throw new Exception("Invalid data format.");
-            }
-        }
-        private string Convert1WordStringFromData(object val)
-        {
-            return this.ConvertValueToString(this.Convert1WordByteArrayFromData(val));
-        }
-
-        #endregion
-
-        #region Double Word Units
-        private byte[] Convert2WordsByteArrayFromData(object val)
-        {
-            Type type = val.GetType();
-
-            if (type == typeof(int))
-            {
-                int intData = (int)val;
-                return BitConverter.GetBytes(intData);
-            }
-            else if (type == typeof(uint))
-            {
-                uint intData = (uint)val;
-                return BitConverter.GetBytes(intData);
-            }
-            else if (type == typeof(float))
-            {
-                float.TryParse(val.ToString(), out float floatData);
-                return BitConverter.GetBytes(floatData);
-            }
-            else if (type == typeof(string) && (val as string).Length > 2 && (val as string).Length <= 4)
-            {
-                char[] charData = ((string)val).ToArray();
-                if (charData.Length % 2 == 0) return Encoding.ASCII.GetBytes(charData);
-                else
-                {
-                    byte[] tmpArr = new byte[charData.Length + 1];
-                    var asciiData = Encoding.ASCII.GetBytes(charData);
-                    for (int i = 0; i < asciiData.Length; i++) tmpArr[i] = asciiData[i];
-                    return tmpArr;
-                }
-            }
-            else if (val is IEnumerable<char> charArr && charArr.Count() > 2 && charArr.Count() <= 4)
-            {
-                char[] charData = charArr.ToArray();
-                if (charData.Length % 2 == 0) return Encoding.ASCII.GetBytes(charData);
-                else
-                {
-                    byte[] tmpArr = new byte[charData.Length + 1];
-                    var asciiData = Encoding.ASCII.GetBytes(charData);
-                    for (int i = 0; i < asciiData.Length; i++) tmpArr[i] = asciiData[i];
-                    return tmpArr;
-                }
-            }
-            else
-            {
-                throw new Exception("Invalid data format.");
-            }
-        }
-        private string Convert2WordsStringFromData(object val)
-        {
-            return this.ConvertValueToString(this.Convert2WordsByteArrayFromData(val), true);
-        }
-
-        private byte[][] Convert2WordsByteArrayFrom4WordsData(object val)
-        {
-            Type type = val.GetType();
-            byte[] tmpByteArray = null;
-            if (type == typeof(long))
-            {
-                long longData = (long)val;
-                tmpByteArray = BitConverter.GetBytes(longData);
-            }
-            else if (type == typeof(ulong))
-            {
-                ulong longData = (ulong)val;
-                tmpByteArray = BitConverter.GetBytes(longData);
-            }
-            else if (type == typeof(double))
-            {
-                double doubleData = (double)val;
-                tmpByteArray = BitConverter.GetBytes(doubleData);
-            }
-            else
-            {
-                throw new Exception("Invalid data format.");
-            }
-            return new byte[][] { tmpByteArray.Take(4).ToArray(), tmpByteArray.Skip(4).Take(4).ToArray() };
-        }
-
-        private string[] Convert2WordsStringFrom4WordsData(object val)
-        {
-            var tmpArr = this.Convert2WordsByteArrayFrom4WordsData(val);
-            return new string[] { this.ConvertValueToString(tmpArr[0], true), this.ConvertValueToString(tmpArr[1], true) };
-        }
-        #endregion
-
-        #region Multiple Units
-        private byte[] ConvertMultiWordsByteArrayFromData(object val)
-        {
-            Type type = val.GetType();
-
-            if (type == typeof(byte))
-            {
-                byte byteData = (byte)val;
-                return new byte[] { byteData, 0x00 };
-            }
-            else if (type == typeof(char))
-            {
-                char charData = (char)val;
-                byte byteData = (byte)charData;
-                return new byte[] { byteData, 0x00 };
-            }
-            else if (type == typeof(short))
-            {
-                short shortData = (short)val;
-                return BitConverter.GetBytes(shortData);
-            }
-            else if (type == typeof(ushort))
-            {
-                ushort shortData = (ushort)val;
-                return BitConverter.GetBytes(shortData);
-            }
-            else if (type == typeof(int))
-            {
-                int intData = (int)val;
-                return BitConverter.GetBytes(intData);
-            }
-            else if (type == typeof(uint))
-            {
-                uint intData = (uint)val;
-                return BitConverter.GetBytes(intData);
-            }
-            else if (type == typeof(long))
-            {
-                long longData = (long)val;
-                return BitConverter.GetBytes(longData);
-            }
-            else if (type == typeof(ulong))
-            {
-                ulong longData = (ulong)val;
-                return BitConverter.GetBytes(longData);
-            }
-            else if (type == typeof(float))
-            {
-                float floatData = (float)val;
-                return BitConverter.GetBytes(floatData);
-            }
-            else if (type == typeof(double))
-            {
-                double doubleData = (double)val;
-                return BitConverter.GetBytes(doubleData);
-            }
-            else if (type == typeof(string))
-            {
-                char[] charData = ((string)val).ToArray();
-                if (charData.Length % 2 == 0) return Encoding.ASCII.GetBytes(charData);
-                else
-                {
-                    byte[] tmpArr = new byte[charData.Length + 1];
-                    var asciiData = Encoding.ASCII.GetBytes(charData);
-                    for (int i = 0; i < asciiData.Length; i++) tmpArr[i] = asciiData[i];
-                    return tmpArr;
-                }
-            }
-            else if (val is IEnumerable<char> charData)
-            {
-                if (charData.Count() % 2 == 0) return Encoding.ASCII.GetBytes(charData.ToArray());
-                else
-                {
-                    byte[] tmpArr = new byte[charData.Count() + 1];
-                    var asciiData = Encoding.ASCII.GetBytes(charData.ToArray());
-                    for (int i = 0; i < asciiData.Length; i++) tmpArr[i] = asciiData[i];
-                    return tmpArr;
-                }
-            }
-            else if (val is IEnumerable<byte> byteArrData)
-            {
-                if (byteArrData.Count() % 2 == 0) return byteArrData.ToArray();
-                else
-                {
-                    byte[] tmpArr = new byte[byteArrData.Count() + 1];
-                    var asciiData = byteArrData.ToArray();
-                    for (int i = 0; i < asciiData.Length; i++) tmpArr[i] = asciiData[i];
-                    return tmpArr;
-                }
-            }
-            else
-            {
-                throw new Exception("Invalid data format.");
-            }
-        }
-        private byte[] ConvertMultiWordsByteArrayFromDataList(IEnumerable vals)
-        {
-            List<byte> tmpByteList = new List<byte>();
-            foreach (var val in vals)
-            {
-                tmpByteList.AddRange(this.ConvertMultiWordsByteArrayFromData(val));
-            }
-            return tmpByteList.ToArray();
-        }
-
-        private string ConvertMultiWordsStringFromData(object val)
-        {
-            return this.ConvertValueToString(this.ConvertMultiWordsByteArrayFromData(val));
-        }
-        private string ConvertMultiWordsStringFromDataList(IEnumerable vals)
-        {
-            var tmpStr = string.Empty;
-            foreach (var val in vals)
-            {
-                tmpStr += this.ConvertValueToString(this.ConvertMultiWordsByteArrayFromData(val));
-            }
-            return tmpStr;
-        }
-        #endregion
-
-        private string ConvertValueToString(byte[] byteArray, bool isDWord = false)
-        {
-            string tmpStr = string.Empty;
-            if (isDWord)
-            {
-                for (int i = 0; i < byteArray.Length; i += 4)
-                {
-                    tmpStr += (i + 3 < byteArray.Length ? byteArray[i + 3].ToString("X2") : "00")
-                        + (i + 2 < byteArray.Length ? byteArray[i + 2].ToString("X2") : "00")
-                        + (i + 1 < byteArray.Length ? byteArray[i + 1].ToString("X2") : "00")
-                        + byteArray[i].ToString("X2");
-                }
-            }
-            else
-            {
-                for (int i = 0; i < byteArray.Length; i += 2)
-                {
-                    tmpStr += (i + 1 < byteArray.Length ? byteArray[i + 1].ToString("X2") : "00") + byteArray[i].ToString("X2");
-                }
-            }
-            return tmpStr;
-        }
-
-        private byte[] ConvertHexStringToByteArray(string hexString)
-        {
-            return Enumerable.Range(0, hexString.Length).Where(x => x % 2 == 0).Select(x => Convert.ToByte(hexString.Substring(x, 2), 16)).ToArray();
-        }
-        #endregion
-
-        #region Convert Address Methods
-        private string ConvertStringFromAddress(PLCSendingPacket data)
-        {
-            var strCode = data.DeviceCode.ToString();
-            string strAddr = string.Empty;
-            if ((int)data.DeviceCode <= 0xA3 && (int)data.DeviceCode >= 0x9C) strAddr = data.Address.ToString("X6");
-            else strAddr = data.Address.ToString("D6");
-
-            return (strCode.Length == 1 ? strCode + "*" : strCode) + (strAddr.Length > 6 ? strAddr.Substring(strAddr.Length - 6, 6) : strAddr);
-        }
-        private string ConvertStringFromAddress(PLCSendingPacket data, int offset)
-        {
-            var strCode = data.DeviceCode.ToString();
-            string strAddr = string.Empty;
-            if ((int)data.DeviceCode <= 0xA3 && (int)data.DeviceCode >= 0x9C) strAddr = (data.Address + offset).ToString("X6");
-            else strAddr = (data.Address + offset).ToString("D6");
-
-            return (strCode.Length == 1 ? strCode + "*" : strCode) + (strAddr.Length > 6 ? strAddr.Substring(strAddr.Length - 6, 6) : strAddr);
-        }
-
-        private byte[] ConvertByteArrayFromAddress(PLCSendingPacket data)
-        {
-            byte[] tmpAddr = BitConverter.GetBytes(data.Address);
-            tmpAddr[tmpAddr.Length - 1] = (byte)data.DeviceCode;
-            return tmpAddr;
-        }
-        private byte[] ConvertByteArrayFromAddress(PLCSendingPacket data, int offset)
-        {
-            byte[] tmpAddr = BitConverter.GetBytes(data.Address + offset);
-            tmpAddr[tmpAddr.Length - 1] = (byte)data.DeviceCode;
-            return tmpAddr;
-        }
-        #endregion
-
-
+        
         #endregion
     }
 }

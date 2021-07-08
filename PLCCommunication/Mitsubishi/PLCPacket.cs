@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -415,5 +416,397 @@ namespace PLCCommunication.Mitsubishi
             return Encoding.ASCII.GetString(m_OriginValueArray);
         }
         #endregion
+    }
+    internal static class PLCConverter
+    {
+        #region Convert Data Methods
+
+        #region Bit Units
+        internal static string Convert1BitStringFromBooleanData(bool boolData)
+        {
+            return boolData ? "1" : "0";
+        }
+        internal static byte Convert1BitByteFromBooleanData(bool boolData)
+        {
+            return (byte)(boolData ? 0x10 : 0x00);
+        }
+        internal static string ConvertNBitStringFromBooleanArrayData(IEnumerable<bool> boolArr)
+        {
+            string tmpStr = string.Empty;
+            foreach (var b in boolArr)
+            {
+                tmpStr += b ? "1" : "0";
+            }
+            return tmpStr;
+        }
+        internal static byte[] ConvertNBitByteArrayFromBooleanArrayData(IEnumerable<bool> boolArr)
+        {
+            int count = boolArr.Count();
+            byte[] tmpByteArr = count % 2 == 0 ? new byte[count / 2] : new byte[count / 2 + 1];
+            for (int i = 0; i < count; i += 2)
+            {
+                tmpByteArr[i / 2] = (byte)((boolArr.ElementAt(i) ? 0x10 : 0x00) + (i + 1 < count && boolArr.ElementAt(i + 1) ? 0x01 : 0x00));
+            }
+            return tmpByteArr;
+        }
+        #endregion
+
+        #region Byte Units
+        internal static byte Convert1ByteFromData(object val)
+        {
+            Type type = val.GetType();
+
+            if (type == typeof(byte))
+            {
+                return (byte)val;
+            }
+            else if (type == typeof(char))
+            {
+                char charData = (char)val;
+                return (byte)charData;
+            }
+            else
+            {
+                throw new Exception("Invalid data format.");
+            }
+        }
+        internal static string Convert1ByteStringFromData(object val)
+        {
+            return (PLCConverter.Convert1ByteFromData(val)).ToString("X2");
+        }
+        #endregion
+
+        #region Word Units
+        internal static byte[] Convert1WordByteArrayFromData(object val)
+        {
+            Type type = val.GetType();
+
+            if (type == typeof(byte))
+            {
+                byte byteData = (byte)val;
+                return new byte[] { byteData, 0x00 };
+            }
+            else if (type == typeof(char))
+            {
+                char charData = (char)val;
+                byte byteData = (byte)charData;
+                return new byte[] { byteData, 0x00 };
+            }
+            else if (type == typeof(short))
+            {
+                short shortData = (short)val;
+                return BitConverter.GetBytes(shortData);
+            }
+            else if (type == typeof(ushort))
+            {
+                ushort shortData = (ushort)val;
+                return BitConverter.GetBytes(shortData);
+            }
+            else if (type == typeof(string) && (val as string).Length <= 2)
+            {
+                char[] charData = ((string)val).ToArray();
+                if (charData.Length % 2 == 0) return Encoding.ASCII.GetBytes(charData);
+                else
+                {
+                    byte[] tmpArr = new byte[charData.Length + 1];
+                    var asciiData = Encoding.ASCII.GetBytes(charData);
+                    for (int i = 0; i < asciiData.Length; i++) tmpArr[i] = asciiData[i];
+                    return tmpArr;
+                }
+            }
+            else if (val is IEnumerable<char> charArr && charArr.Count() <= 2)
+            {
+                char[] charData = charArr.ToArray();
+                if (charData.Length % 2 == 0) return Encoding.ASCII.GetBytes(charData);
+                else
+                {
+                    byte[] tmpArr = new byte[charData.Length + 1];
+                    var asciiData = Encoding.ASCII.GetBytes(charData);
+                    for (int i = 0; i < asciiData.Length; i++) tmpArr[i] = asciiData[i];
+                    return tmpArr;
+                }
+            }
+            else
+            {
+                throw new Exception("Invalid data format.");
+            }
+        }
+        internal static  string Convert1WordStringFromData(object val)
+        {
+            return PLCConverter.ConvertValueToString(PLCConverter.Convert1WordByteArrayFromData(val));
+        }
+
+        #endregion
+
+        #region Double Word Units
+        internal static  byte[] Convert2WordsByteArrayFromData(object val)
+        {
+            Type type = val.GetType();
+
+            if (type == typeof(int))
+            {
+                int intData = (int)val;
+                return BitConverter.GetBytes(intData);
+            }
+            else if (type == typeof(uint))
+            {
+                uint intData = (uint)val;
+                return BitConverter.GetBytes(intData);
+            }
+            else if (type == typeof(float))
+            {
+                float.TryParse(val.ToString(), out float floatData);
+                return BitConverter.GetBytes(floatData);
+            }
+            else if (type == typeof(string) && (val as string).Length > 2 && (val as string).Length <= 4)
+            {
+                char[] charData = ((string)val).ToArray();
+                if (charData.Length % 2 == 0) return Encoding.ASCII.GetBytes(charData);
+                else
+                {
+                    byte[] tmpArr = new byte[charData.Length + 1];
+                    var asciiData = Encoding.ASCII.GetBytes(charData);
+                    for (int i = 0; i < asciiData.Length; i++) tmpArr[i] = asciiData[i];
+                    return tmpArr;
+                }
+            }
+            else if (val is IEnumerable<char> charArr && charArr.Count() > 2 && charArr.Count() <= 4)
+            {
+                char[] charData = charArr.ToArray();
+                if (charData.Length % 2 == 0) return Encoding.ASCII.GetBytes(charData);
+                else
+                {
+                    byte[] tmpArr = new byte[charData.Length + 1];
+                    var asciiData = Encoding.ASCII.GetBytes(charData);
+                    for (int i = 0; i < asciiData.Length; i++) tmpArr[i] = asciiData[i];
+                    return tmpArr;
+                }
+            }
+            else
+            {
+                throw new Exception("Invalid data format.");
+            }
+        }
+        internal static  string Convert2WordsStringFromData(object val)
+        {
+            return PLCConverter.ConvertValueToString(PLCConverter.Convert2WordsByteArrayFromData(val), true);
+        }
+
+        internal static  byte[][] Convert2WordsByteArrayFrom4WordsData(object val)
+        {
+            Type type = val.GetType();
+            byte[] tmpByteArray = null;
+            if (type == typeof(long))
+            {
+                long longData = (long)val;
+                tmpByteArray = BitConverter.GetBytes(longData);
+            }
+            else if (type == typeof(ulong))
+            {
+                ulong longData = (ulong)val;
+                tmpByteArray = BitConverter.GetBytes(longData);
+            }
+            else if (type == typeof(double))
+            {
+                double doubleData = (double)val;
+                tmpByteArray = BitConverter.GetBytes(doubleData);
+            }
+            else
+            {
+                throw new Exception("Invalid data format.");
+            }
+            return new byte[][] { tmpByteArray.Take(4).ToArray(), tmpByteArray.Skip(4).Take(4).ToArray() };
+        }
+
+        internal static  string[] Convert2WordsStringFrom4WordsData(object val)
+        {
+            var tmpArr = PLCConverter.Convert2WordsByteArrayFrom4WordsData(val);
+            return new string[] { PLCConverter.ConvertValueToString(tmpArr[0], true), PLCConverter.ConvertValueToString(tmpArr[1], true) };
+        }
+        #endregion
+
+        #region Multiple Units
+        internal static  byte[] ConvertMultiWordsByteArrayFromData(object val)
+        {
+            Type type = val.GetType();
+
+            if (type == typeof(byte))
+            {
+                byte byteData = (byte)val;
+                return new byte[] { byteData, 0x00 };
+            }
+            else if (type == typeof(char))
+            {
+                char charData = (char)val;
+                byte byteData = (byte)charData;
+                return new byte[] { byteData, 0x00 };
+            }
+            else if (type == typeof(short))
+            {
+                short shortData = (short)val;
+                return BitConverter.GetBytes(shortData);
+            }
+            else if (type == typeof(ushort))
+            {
+                ushort shortData = (ushort)val;
+                return BitConverter.GetBytes(shortData);
+            }
+            else if (type == typeof(int))
+            {
+                int intData = (int)val;
+                return BitConverter.GetBytes(intData);
+            }
+            else if (type == typeof(uint))
+            {
+                uint intData = (uint)val;
+                return BitConverter.GetBytes(intData);
+            }
+            else if (type == typeof(long))
+            {
+                long longData = (long)val;
+                return BitConverter.GetBytes(longData);
+            }
+            else if (type == typeof(ulong))
+            {
+                ulong longData = (ulong)val;
+                return BitConverter.GetBytes(longData);
+            }
+            else if (type == typeof(float))
+            {
+                float floatData = (float)val;
+                return BitConverter.GetBytes(floatData);
+            }
+            else if (type == typeof(double))
+            {
+                double doubleData = (double)val;
+                return BitConverter.GetBytes(doubleData);
+            }
+            else if (type == typeof(string))
+            {
+                char[] charData = ((string)val).ToArray();
+                if (charData.Length % 2 == 0) return Encoding.ASCII.GetBytes(charData);
+                else
+                {
+                    byte[] tmpArr = new byte[charData.Length + 1];
+                    var asciiData = Encoding.ASCII.GetBytes(charData);
+                    for (int i = 0; i < asciiData.Length; i++) tmpArr[i] = asciiData[i];
+                    return tmpArr;
+                }
+            }
+            else if (val is IEnumerable<char> charData)
+            {
+                if (charData.Count() % 2 == 0) return Encoding.ASCII.GetBytes(charData.ToArray());
+                else
+                {
+                    byte[] tmpArr = new byte[charData.Count() + 1];
+                    var asciiData = Encoding.ASCII.GetBytes(charData.ToArray());
+                    for (int i = 0; i < asciiData.Length; i++) tmpArr[i] = asciiData[i];
+                    return tmpArr;
+                }
+            }
+            else if (val is IEnumerable<byte> byteArrData)
+            {
+                if (byteArrData.Count() % 2 == 0) return byteArrData.ToArray();
+                else
+                {
+                    byte[] tmpArr = new byte[byteArrData.Count() + 1];
+                    var asciiData = byteArrData.ToArray();
+                    for (int i = 0; i < asciiData.Length; i++) tmpArr[i] = asciiData[i];
+                    return tmpArr;
+                }
+            }
+            else
+            {
+                throw new Exception("Invalid data format.");
+            }
+        }
+        internal static  byte[] ConvertMultiWordsByteArrayFromDataList(IEnumerable vals)
+        {
+            List<byte> tmpByteList = new List<byte>();
+            foreach (var val in vals)
+            {
+                tmpByteList.AddRange(PLCConverter.ConvertMultiWordsByteArrayFromData(val));
+            }
+            return tmpByteList.ToArray();
+        }
+
+        internal static  string ConvertMultiWordsStringFromData(object val)
+        {
+            return PLCConverter.ConvertValueToString(PLCConverter.ConvertMultiWordsByteArrayFromData(val));
+        }
+        internal static  string ConvertMultiWordsStringFromDataList(IEnumerable vals)
+        {
+            var tmpStr = string.Empty;
+            foreach (var val in vals)
+            {
+                tmpStr += PLCConverter.ConvertValueToString(PLCConverter.ConvertMultiWordsByteArrayFromData(val));
+            }
+            return tmpStr;
+        }
+        #endregion
+
+        internal static  string ConvertValueToString(byte[] byteArray, bool isDWord = false)
+        {
+            string tmpStr = string.Empty;
+            if (isDWord)
+            {
+                for (int i = 0; i < byteArray.Length; i += 4)
+                {
+                    tmpStr += (i + 3 < byteArray.Length ? byteArray[i + 3].ToString("X2") : "00")
+                        + (i + 2 < byteArray.Length ? byteArray[i + 2].ToString("X2") : "00")
+                        + (i + 1 < byteArray.Length ? byteArray[i + 1].ToString("X2") : "00")
+                        + byteArray[i].ToString("X2");
+                }
+            }
+            else
+            {
+                for (int i = 0; i < byteArray.Length; i += 2)
+                {
+                    tmpStr += (i + 1 < byteArray.Length ? byteArray[i + 1].ToString("X2") : "00") + byteArray[i].ToString("X2");
+                }
+            }
+            return tmpStr;
+        }
+
+        internal static  byte[] ConvertHexStringToByteArray(string hexString)
+        {
+            return Enumerable.Range(0, hexString.Length).Where(x => x % 2 == 0).Select(x => Convert.ToByte(hexString.Substring(x, 2), 16)).ToArray();
+        }
+        #endregion
+
+        #region Convert Address Methods
+        internal static  string ConvertStringFromAddress(PLCSendingPacket data)
+        {
+            var strCode = data.DeviceCode.ToString();
+            string strAddr = string.Empty;
+            if ((int)data.DeviceCode <= 0xA3 && (int)data.DeviceCode >= 0x9C) strAddr = data.Address.ToString("X6");
+            else strAddr = data.Address.ToString("D6");
+
+            return (strCode.Length == 1 ? strCode + "*" : strCode) + (strAddr.Length > 6 ? strAddr.Substring(strAddr.Length - 6, 6) : strAddr);
+        }
+        internal static  string ConvertStringFromAddress(PLCSendingPacket data, int offset)
+        {
+            var strCode = data.DeviceCode.ToString();
+            string strAddr = string.Empty;
+            if ((int)data.DeviceCode <= 0xA3 && (int)data.DeviceCode >= 0x9C) strAddr = (data.Address + offset).ToString("X6");
+            else strAddr = (data.Address + offset).ToString("D6");
+
+            return (strCode.Length == 1 ? strCode + "*" : strCode) + (strAddr.Length > 6 ? strAddr.Substring(strAddr.Length - 6, 6) : strAddr);
+        }
+
+        internal static  byte[] ConvertByteArrayFromAddress(PLCSendingPacket data)
+        {
+            byte[] tmpAddr = BitConverter.GetBytes(data.Address);
+            tmpAddr[tmpAddr.Length - 1] = (byte)data.DeviceCode;
+            return tmpAddr;
+        }
+        internal static  byte[] ConvertByteArrayFromAddress(PLCSendingPacket data, int offset)
+        {
+            byte[] tmpAddr = BitConverter.GetBytes(data.Address + offset);
+            tmpAddr[tmpAddr.Length - 1] = (byte)data.DeviceCode;
+            return tmpAddr;
+        }
+        #endregion
+
     }
 }

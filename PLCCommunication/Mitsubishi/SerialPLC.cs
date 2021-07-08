@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Ports;
@@ -13,13 +14,35 @@ namespace PLCCommunication.Mitsubishi
     public class SerialPLC : IPLC
     {
         #region Fields
+        private const byte ENQ = 0x05;
+        private const byte EOT = 0x04;
+        private const byte STX = 0x02;
+        private const byte ETX = 0x03;
+        private const byte ACK = 0x06;
+        private const byte NAK = 0x15;
+        private const byte CR = 0x0D;
+        private const byte LF = 0x0A;
+        private const byte CL = 0x0C;
+
+        private readonly char[] END_OF_TRANSMISSION = new char[] { (char)EOT, (char)CR, (char)LF };
+        private readonly char[] CLEAR_ALL_MESSAGES = new char[] { (char)CL, (char)CR, (char)LF };
+        private readonly string PREFIX_STRING = new string(new char[] { (char)ENQ });
+        private readonly string POSTFIX_STRING = new string(new char[] { (char)CR, (char)LF });
+
         private readonly string _DefaultPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + @"\Check Box";
+        private readonly object _CommunicationLock = new object();
+        private readonly object _SequenceLock = new object();
+        private readonly Queue<AutoResetEvent> m_SequenceQueue = new Queue<AutoResetEvent>();
+        private readonly ManualResetEvent m_TerminateEvent = new ManualResetEvent(false);
 
         private SerialPort m_Serial;
         private SerialSetting m_Setting;
         private Thread m_ConnectionCheckThread;
 
 
+        private string m_StringBuffer = string.Empty;
+        private string m_CurrentString = string.Empty;
+        
         #endregion
 
 
@@ -55,10 +78,20 @@ namespace PLCCommunication.Mitsubishi
             get { return m_Setting == null ? Handshake.None : m_Setting.Handshake; }
             set { if (m_Setting != null) m_Setting.Handshake = value; }
         }
-        public uint Timeout
+        public byte NetworkNo
         {
-            get { return m_Setting == null ? uint.MinValue : m_Setting.Timeout * 250; }
-            set { if (m_Setting != null) m_Setting.Timeout = value / 250; }
+            get { return m_Setting == null ? byte.MinValue : m_Setting.NetworkNo; }
+            set { if (m_Setting != null) m_Setting.NetworkNo = value; }
+        }
+        public byte PCNo
+        {
+            get { return m_Setting == null ? byte.MaxValue : m_Setting.PCNo; }
+            set { if (m_Setting != null) m_Setting.PCNo = value; }
+        }
+        public byte HostStationNo
+        {
+            get { return m_Setting == null ? byte.MinValue : m_Setting.HostStationNo; }
+            set { if (m_Setting != null) m_Setting.HostStationNo = value; }
         }
         /// <summary>
         /// Reconnecting count when disconnected.
@@ -69,12 +102,15 @@ namespace PLCCommunication.Mitsubishi
             get { return m_Setting == null ? ushort.MinValue : m_Setting.ReconnectCount; }
             set { if (m_Setting != null) m_Setting.ReconnectCount = value; }
         }
-        public bool IsConnected
+        public bool? IsConnected
         {
             get
             {
-                if (m_Serial != null) return m_Serial.IsOpen;
-                else return false;
+                if (m_Serial != null && m_Serial.IsOpen)
+                {
+                    return (m_Serial.Handshake == Handshake.None ? true : m_Serial.DsrHolding);
+                }
+                else return null;
             }
         }
         #endregion
@@ -89,9 +125,8 @@ namespace PLCCommunication.Mitsubishi
             this.Parity = Parity.None;
             this.StopBits = StopBits.One;
             this.Handshake = Handshake.None;
-            this.Timeout = 1000;
         }
-        public SerialPLC(string portName, int baudRate, int dataBits = 8, Parity parity = Parity.None, StopBits stopBits = StopBits.One, Handshake handshake = Handshake.None, uint timeout = 4000)
+        public SerialPLC(string portName, int baudRate, int dataBits = 8, Parity parity = Parity.None, StopBits stopBits = StopBits.One, Handshake handshake = Handshake.None)
         {
             m_Setting = new SerialSetting();
 
@@ -101,7 +136,6 @@ namespace PLCCommunication.Mitsubishi
             this.DataBits = dataBits;
             this.StopBits = stopBits;
             this.Handshake = handshake;
-            this.Timeout = timeout;
         }
 
         public void Dispose()
@@ -169,7 +203,7 @@ namespace PLCCommunication.Mitsubishi
 
         public void Connect()
         {
-            if (IsConnected) throw new Exception("Already connected.");
+            if (IsConnected != null) throw new Exception("Already Opened.");
 
             this.SerialConnect();
 
@@ -181,7 +215,7 @@ namespace PLCCommunication.Mitsubishi
         }
         public void Connect(string portName, int baudRate)
         {
-            if (IsConnected) throw new Exception("Already connected.");
+            if (IsConnected != null) throw new Exception("Already Opened.");
 
             this.PortName = portName;
             this.BaudRate = baudRate;
@@ -190,7 +224,7 @@ namespace PLCCommunication.Mitsubishi
         }
         public void Connect(string portName, int baudRate, int dataBits, Parity parity, StopBits stopBits, Handshake handshake)
         {
-            if (IsConnected) throw new Exception("Already connected.");
+            if (IsConnected != null) throw new Exception("Already Opened.");
 
             this.PortName = portName;
             this.BaudRate = baudRate;
@@ -198,7 +232,6 @@ namespace PLCCommunication.Mitsubishi
             this.DataBits = dataBits;
             this.StopBits = stopBits;
             this.Handshake = handshake;
-
             this.Connect();
         }
         private void SerialConnect()
@@ -214,18 +247,42 @@ namespace PLCCommunication.Mitsubishi
             };
             m_Serial.DataReceived += Serial_DataReceived;
             m_Serial.Open();
+            m_Serial.DtrEnable = true;
+            m_TerminateEvent.Reset();
         }
 
         private void Serial_DataReceived(object sender, SerialDataReceivedEventArgs e)
         {
-            if(e.EventType == SerialData.Chars)
+            m_StringBuffer += m_Serial.ReadExisting();
+            int len = -1;
+            while ((len = m_StringBuffer.IndexOf(POSTFIX_STRING)) != -1)
             {
-                var aa = m_Serial.Encoding.GetBytes(m_Serial.ReadExisting());
-                
-            }
-            else
-            {
-                this.Disconnect();
+                len = len + POSTFIX_STRING.Length > m_StringBuffer.Length ? m_StringBuffer.Length : len + POSTFIX_STRING.Length;
+
+                lock (_CommunicationLock)
+                {
+                    m_CurrentString = m_StringBuffer.Substring(0, len);
+                    m_StringBuffer = m_StringBuffer.Remove(0, len);
+
+                    if (m_CurrentString.SequenceEqual(END_OF_TRANSMISSION))
+                    {
+                        m_CurrentString = string.Empty;
+                        m_StringBuffer = string.Empty;
+                        m_Serial.Dispose();
+                        return;
+                    }
+                    else if (m_CurrentString.SequenceEqual(CLEAR_ALL_MESSAGES))
+                    {
+                        m_CurrentString = string.Empty;
+                        m_StringBuffer = string.Empty;
+                        this.ClearMessages();
+                        return;
+                    }
+                }
+                lock (_SequenceLock)
+                {
+                    if (m_SequenceQueue.Count > 0) m_SequenceQueue.Dequeue().Set();
+                }
             }
         }
 
@@ -237,7 +294,7 @@ namespace PLCCommunication.Mitsubishi
                 while (true)
                 {
                     //it change false only stream.Read() or stream.Write() is failed.
-                    if (!(bool)IsConnected)
+                    if (!IsConnected.HasValue || !IsConnected.Value)
                     {
                         //retry communicating
                         try
@@ -250,9 +307,12 @@ namespace PLCCommunication.Mitsubishi
                         }
                         catch (Exception err)
                         {
-                            if (this.ReconnectCount == 0) continue;
-
-                            if (count > ReconnectCount) throw new Exception("PLC reconnection failed : " + err.Message + Environment.NewLine + "Please check LAN cable or PLC power.");
+                            if (this.ReconnectCount == 0)
+                            {
+                                Thread.Sleep(100);
+                                continue;
+                            }
+                            if (count > ReconnectCount) throw new Exception("PLC reconnection failed : " + err.Message + Environment.NewLine + "Please check serial cable or PLC power.");
                             count++;
                             Thread.Sleep(100);
                             continue;
@@ -275,22 +335,479 @@ namespace PLCCommunication.Mitsubishi
 
         public void Disconnect()
         {
-
+            if(m_ConnectionCheckThread != null && m_ConnectionCheckThread.IsAlive)
+            {
+                m_ConnectionCheckThread.Abort();
+                m_ConnectionCheckThread.Join(1000);
+            }
+            this.SerialDisconnect();
+        }
+        private void ClearMessages()
+        {
+            lock(_SequenceLock) if (m_SequenceQueue != null) m_SequenceQueue.Clear();
+            if(m_Serial != null && m_Serial.IsOpen)
+            {
+                m_Serial.DiscardInBuffer();
+                m_Serial.DiscardOutBuffer();
+            }
+            m_TerminateEvent.Set();
         }
         private void SerialDisconnect()
         {
+            this.ClearMessages();
             if(m_Serial != null)
             {
                 m_Serial.DataReceived -= this.Serial_DataReceived;
-                m_Serial.DiscardInBuffer();
-                m_Serial.DiscardOutBuffer();
                 m_Serial.Close();
             }
         }
         public void Refresh()
         {
-
+            this.SerialDisconnect();
+            this.SerialConnect();
         }
+
+        /// <summary>
+        /// Send message that try to write data having one address on PLC.
+        /// </summary>
+        /// <param name="data">A address data to write.</param>
+        /// <returns></returns>
+        public void Write(PLCSendingPacket data)
+        {
+            if (!IsConnected.HasValue || !IsConnected.Value) throw new Exception("PLC disconnected.");
+            if (data.IsRead) throw new Exception("Wrong PLC massage type : Must use write type message.");
+
+            this.SendMsg(data);
+        }
+        /// <summary>
+        /// Send message that try to write data having several addresses on PLC.
+        /// </summary>
+        /// <param name="dataArr">Address data list to write.</param>
+        /// <returns></returns>
+        public void Write(IEnumerable<PLCSendingPacket> dataArr)
+        {
+            if (!IsConnected.HasValue || !IsConnected.Value) throw new Exception("PLC disconnected.");
+            if (dataArr.Any(data => data.IsRead)) throw new Exception("Wrong PLC massage type : Must use write type messages.");
+
+            this.SendMsg(dataArr);
+        }
+
+        /// <summary>
+        /// Send message that try to bring data having one addresses on PLC.
+        /// </summary>
+        /// <param name="data">A address data to bring.</param>
+        /// <param name="receiveValue">Received value in PLCReceiveData instance.</param>
+        /// <returns></returns>
+        public void Read(PLCSendingPacket data, ref PLCReceivingPacket receiveValue)
+        {
+            if (!IsConnected.HasValue || !IsConnected.Value) throw new Exception("PLC disconnected.");
+            if (!data.IsRead) throw new Exception("Wrong PLC massage type : Must use read type message.");
+
+            this.SendMsg(data, ref receiveValue);
+        }
+        /// <summary>
+        /// Send message that try to bring data having several addresses on PLC.
+        /// </summary>
+        /// <param name="dataArr">Address data list to bring.</param>
+        /// <param name="receiveValueList">Received data list in byte array.</param>
+        /// <returns></returns>
+        public void Read(IEnumerable<PLCSendingPacket> dataArr, ref List<PLCReceivingPacket> receiveValueList)
+        {
+            if (!IsConnected.HasValue || !IsConnected.Value) throw new Exception("PLC disconnected.");
+            if (dataArr.Any(data => !data.IsRead)) throw new Exception("Wrong PLC massage type : Must use read type messages.");
+
+            this.SendMsg(dataArr, ref receiveValueList);
+        }
+
+
+        #region Communicate Methods
+        private void SendMsg(PLCSendingPacket data)
+        {
+            string sendMsg = string.Empty;
+            ushort devCount = 0;
+            Type dataType = data.Value.GetType();
+            
+            string strHeader = "F8" + HostStationNo.ToString("X2") + NetworkNo.ToString("X2") + PCNo.ToString("X2") + "03FF" + "00" + "00";
+            string strData = "1401";
+            if (data.Value is IEnumerable<bool> || dataType == typeof(bool))
+            {
+                strData += "0001" + PLCConverter.ConvertStringFromAddress(data);
+                if (data.Value.GetType() == typeof(bool))
+                {
+                    strData += "0001" + PLCConverter.Convert1BitStringFromBooleanData((bool)data.Value);
+                }
+                else
+                {
+                    var sendData = PLCConverter.ConvertNBitStringFromBooleanArrayData(data.Value as IEnumerable<bool>);
+                    devCount = (ushort)sendData.Length;
+                    strData += devCount.ToString("X4") + sendData;
+                }
+            }
+            else
+            {
+                strData += "0000" + PLCConverter.ConvertStringFromAddress(data);
+                string sendData = string.Empty;
+                if (data.Value is IEnumerable itemList && !(dataType == typeof(string) || data.Value is IEnumerable<char> || data.Value is IEnumerable<byte>)) sendData = PLCConverter.ConvertMultiWordsStringFromDataList(itemList);
+                else sendData = PLCConverter.ConvertMultiWordsStringFromData(data.Value);
+                devCount = (ushort)(sendData.Length / 4);
+                strData += devCount.ToString("X4") + sendData;
+            }
+            var checksumMsg = this.CalculateCheckSum(strHeader + strData);
+            sendMsg = PREFIX_STRING + strHeader + strData + checksumMsg + POSTFIX_STRING;
+
+            AutoResetEvent executeEvent = null;
+            lock (_CommunicationLock)
+            {
+                m_Serial.Write(sendMsg);
+                lock (_SequenceLock)
+                {
+                    executeEvent = new AutoResetEvent(false);
+                    m_SequenceQueue.Enqueue(executeEvent);
+                }
+            }
+            this.ReceiveMsg(executeEvent);
+        }
+        private void SendMsg(PLCSendingPacket data, ref PLCReceivingPacket receiveData)
+        {
+            string sendMsg = string.Empty;
+            byte[] readVal = null;
+
+            string strHeader = "F8" + HostStationNo.ToString("X2") + NetworkNo.ToString("X2") + PCNo.ToString("X2") + "03FF" + "00" + "00";
+            string strData = "0401" + "0000" + PLCConverter.ConvertStringFromAddress(data) + data.WordCount.ToString("X4");
+            var checksumMsg = this.CalculateCheckSum(strHeader + strData);           
+            sendMsg = PREFIX_STRING + strHeader + strData + checksumMsg + POSTFIX_STRING;
+
+            AutoResetEvent executeEvent = null;
+            lock (_CommunicationLock)
+            {
+                m_Serial.Write(sendMsg);
+
+                lock (_SequenceLock)
+                {
+                    executeEvent = new AutoResetEvent(false);
+                    m_SequenceQueue.Enqueue(executeEvent);
+                }
+            }
+
+            var tmpArr = this.ReceiveMsg(executeEvent, data.WordCount);
+
+            readVal = new byte[tmpArr.Length];
+            for (int i = 0; i < tmpArr.Length; i += 2)
+            {
+                if (i + 1 < tmpArr.Length)
+                {
+                    readVal[i + 1] = tmpArr[i];
+                    readVal[i] = tmpArr[i + 1];
+                }
+                else if (i + 1 == tmpArr.Length)
+                {
+                    readVal[i] = tmpArr[i];
+                }
+            }
+            receiveData = new PLCReceivingPacket(readVal, data.DeviceCode, data.Address);
+        }
+        private void SendMsg(IEnumerable<PLCSendingPacket> dataList)
+        {
+            string sendMsg = string.Empty;
+
+            string strHeader = string.Empty;
+            string strData = string.Empty;
+
+            var boolDataList = dataList.Where(item => item.Value is IEnumerable<bool> || item.Value is bool);
+            var objDataList = dataList.Where(item => !(item.Value is IEnumerable<bool> || item.Value is bool));
+
+            if (boolDataList.Count() > 0)
+            {
+                byte bitCount = 0;
+                strHeader = "F8" + HostStationNo.ToString("X2") + NetworkNo.ToString("X2") + PCNo.ToString("X2") + "03FF" + "00" + "00";
+                strData = "1402" + "0001";
+                string strAddress = string.Empty;
+
+                foreach (var boolData in boolDataList)
+                {
+                    if (boolData.Value is IEnumerable<bool> bListVal)
+                    {
+                        int len = bListVal.Count();
+                        for (int i = 0; i < len; i++)
+                        {
+                            strAddress += PLCConverter.ConvertStringFromAddress(boolData, i) + (bListVal.ElementAt(i) ? "01" : "00");
+                            bitCount++;
+                        }
+                    }
+                    else if (boolData.Value is bool bVal)
+                    {
+                        strAddress += PLCConverter.ConvertStringFromAddress(boolData) + (bVal ? "01" : "00");
+                        bitCount++;
+                    }
+                }
+
+                strData += bitCount.ToString("X2") + strAddress;
+                var checksumMsg = this.CalculateCheckSum(strHeader + strData);
+                sendMsg = PREFIX_STRING + strHeader + strData + checksumMsg + POSTFIX_STRING;
+
+                AutoResetEvent executeEvent = null;
+                lock (_CommunicationLock)
+                {
+                    m_Serial.Write(sendMsg);
+                    lock (_SequenceLock)
+                    {
+                        executeEvent = new AutoResetEvent(false);
+                        m_SequenceQueue.Enqueue(executeEvent);
+                    }
+                }
+                this.ReceiveMsg(executeEvent);
+            }
+
+            if (objDataList.Count() > 0)
+            {
+                byte wordCount = 0;
+                byte dwordCount = 0;
+
+                strHeader = "F8" + HostStationNo.ToString("X2") + NetworkNo.ToString("X2") + PCNo.ToString("X2") + "03FF" + "00" + "00";
+                strData = "1402" + "0000";
+                string strWordAddress = string.Empty;
+                string strDWordAddress = string.Empty;
+
+                foreach (var data in objDataList)
+                {
+                    string tmpData = string.Empty;
+
+                    if (data.Value is IEnumerable vals)
+                    {
+                        int tmpCount = 0;
+                        if (vals is IEnumerable<char> || vals is string)
+                        {
+                            tmpData = PLCConverter.ConvertMultiWordsStringFromData(vals);
+                            while (tmpData.Length >= 8)
+                            {
+                                strDWordAddress += PLCConverter.ConvertStringFromAddress(data, tmpCount * 2) + tmpData.Substring(4, 4) + tmpData.Substring(0, 4);
+                                tmpData = tmpData.Substring(8);
+                                dwordCount++;
+                                tmpCount++;
+                            }
+                            if (tmpData.Length > 0)
+                            {
+                                strWordAddress += PLCConverter.ConvertStringFromAddress(data, tmpCount * 2) + tmpData;
+                                wordCount++;
+                            }
+                        }
+                        else
+                        {
+                            foreach (var val in vals)
+                            {
+                                if (val.GetType() == typeof(long) || val.GetType() == typeof(ulong) || val.GetType() == typeof(double))
+                                {
+                                    var tmpArr = PLCConverter.Convert2WordsStringFrom4WordsData(val);
+                                    strDWordAddress += PLCConverter.ConvertStringFromAddress(data, tmpCount);
+                                    strDWordAddress += tmpArr[0];
+                                    tmpCount += 2;
+                                    strDWordAddress += PLCConverter.ConvertStringFromAddress(data, tmpCount);
+                                    strDWordAddress += tmpArr[1];
+                                    tmpCount += 2;
+                                    dwordCount += 2;
+                                    continue;
+                                }
+                                try
+                                {
+                                    tmpData = PLCConverter.Convert2WordsStringFromData(val);
+                                    strDWordAddress += PLCConverter.ConvertStringFromAddress(data, tmpCount) + tmpData;
+                                    tmpCount += 2;
+                                    dwordCount++;
+                                }
+                                catch
+                                {
+                                    tmpData = PLCConverter.Convert1WordStringFromData(val);
+                                    strWordAddress += PLCConverter.ConvertStringFromAddress(data, tmpCount) + tmpData;
+                                    tmpCount++;
+                                    wordCount++;
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        if (data.Value.GetType() == typeof(long) || data.Value.GetType() == typeof(ulong) || data.Value.GetType() == typeof(double))
+                        {
+                            var tmpArr = PLCConverter.Convert2WordsStringFrom4WordsData(data.Value);
+                            strDWordAddress += PLCConverter.ConvertStringFromAddress(data) + tmpArr[0];
+                            strDWordAddress += PLCConverter.ConvertStringFromAddress(data, 2);
+                            strDWordAddress += tmpArr[1];
+                            dwordCount += 2;
+                            continue;
+                        }
+                        try
+                        {
+                            tmpData = PLCConverter.Convert2WordsStringFromData(data.Value);
+                            strDWordAddress += PLCConverter.ConvertStringFromAddress(data) + tmpData;
+                            dwordCount++;
+                        }
+                        catch
+                        {
+                            tmpData = PLCConverter.Convert1WordStringFromData(data.Value);
+                            strWordAddress += PLCConverter.ConvertStringFromAddress(data) + tmpData;
+                            wordCount++;
+                        }
+                    }
+                }
+                strData += wordCount.ToString("X2") + dwordCount.ToString("X2") + strWordAddress + strDWordAddress;
+                var checksumMsg = this.CalculateCheckSum(strHeader + strData);
+                sendMsg = PREFIX_STRING + strHeader + strData + checksumMsg + POSTFIX_STRING;
+
+                AutoResetEvent executeEvent = null;
+                lock (_CommunicationLock)
+                {
+                    m_Serial.Write(sendMsg);
+                    lock (_SequenceLock)
+                    {
+                        executeEvent = new AutoResetEvent(false);
+                        m_SequenceQueue.Enqueue(executeEvent);
+                    }
+                }
+                this.ReceiveMsg(executeEvent);
+            }
+        }
+        private void SendMsg(IEnumerable<PLCSendingPacket> dataList, ref List<PLCReceivingPacket> readValArr)
+        {
+            string sendMsg = string.Empty;
+
+            string strHeader = string.Empty;
+            string strData = string.Empty;
+            byte wordCount = 0;
+            byte dwordCount = 0;
+
+            strHeader = "F8" + HostStationNo.ToString("X2") + NetworkNo.ToString("X2") + PCNo.ToString("X2") + "03FF" + "00" + "00";
+            strData = "0403" + "0000";
+            string strWordAddress = string.Empty;
+            string strDWordAddress = string.Empty;
+
+            foreach (var data in dataList)
+            {
+                var tmpDwordCount = data.WordCount / 2 + dwordCount > byte.MaxValue ? throw new Exception("Too much send messages at once.") : (byte)(data.WordCount / 2);
+                var tmpWordCount = data.WordCount % 2 + wordCount > byte.MaxValue ? throw new Exception("Too much send messages at once.") : (byte)(data.WordCount % 2);
+
+                for (int i = 0; i < tmpDwordCount; i++)
+                {
+                    strDWordAddress += PLCConverter.ConvertStringFromAddress(data, 2 * i);
+                }
+                if (tmpWordCount > 0)
+                {
+                    strWordAddress += PLCConverter.ConvertStringFromAddress(data, 2 * tmpDwordCount);
+                }
+                dwordCount += tmpDwordCount;
+                wordCount += tmpWordCount;
+            }
+            strData += wordCount.ToString("X2") + dwordCount.ToString("X2") + strWordAddress + strDWordAddress;
+            var checksumMsg = this.CalculateCheckSum(strHeader + strData);
+            sendMsg = PREFIX_STRING + strHeader + strData + checksumMsg + POSTFIX_STRING;
+
+
+            AutoResetEvent executeEvent = null;
+            lock (_CommunicationLock)
+            {
+                m_Serial.Write(sendMsg);
+                lock (_SequenceLock)
+                {
+                    executeEvent = new AutoResetEvent(false);
+                    m_SequenceQueue.Enqueue(executeEvent);
+                }
+            }
+
+            var tmpArr = this.ReceiveMsg(executeEvent, (ushort)(dwordCount * 2 + wordCount));
+
+            var wordArr = tmpArr.Take(wordCount * 2);
+            var dwordArr = tmpArr.Skip(wordCount * 2);
+
+            List<PLCReceivingPacket> tmpResultList = new List<PLCReceivingPacket>();
+
+            foreach (var data in dataList)
+            {
+                List<byte> tmpList = new List<byte>();
+
+                var tmpDwordCount = data.WordCount / 2;
+                var tmpWordCount = data.WordCount % 2;
+
+                if (tmpDwordCount > 0)
+                {
+                    for (int i = 0; i < tmpDwordCount; i++)
+                    {
+                        var tmpDwordArrForAscii = dwordArr.Skip(i * 4).Take(4);
+                        tmpList.AddRange(tmpDwordArrForAscii.Reverse());
+                    }
+                    dwordArr = dwordArr.Skip(tmpDwordCount * 4);
+                }
+                if (tmpWordCount > 0)
+                {
+                    for (int i = 0; i < tmpWordCount; i++)
+                    {
+                        var tmpWordArrForAscii = wordArr.Skip(i * 2).Take(2);
+                        tmpList.AddRange(tmpWordArrForAscii.Reverse());
+                    }
+                    wordArr = wordArr.Skip(tmpWordCount * 2);
+                }
+                if (tmpList.Count > 0)
+                {
+                    tmpResultList.Add(new PLCReceivingPacket(tmpList.ToArray(), data.DeviceCode, data.Address));
+                    tmpList.Clear();
+                }
+                tmpList = null;
+            }
+            readValArr = tmpResultList;
+        }
+        private string CalculateCheckSum(string msg)
+        {
+            int sum = 0;
+            foreach (var c in msg)
+            {
+                sum += c;
+            }
+            var res = sum.ToString("X2");
+
+            return res.Substring(res.Length - 2, 2);
+        }
+        private byte[] ReceiveMsg(AutoResetEvent executeEvent, ushort wordCount = 0)
+        {
+            string receiveData = string.Empty;
+            string tmpHeader = string.Empty;
+
+            while (!executeEvent.WaitOne(100))
+            {
+                if (m_TerminateEvent.WaitOne(1)) throw new Exception("Session disconnected.");
+            }
+            lock (_CommunicationLock)
+            {
+                receiveData = m_CurrentString;
+                m_CurrentString = string.Empty;
+            }
+
+
+
+            if (wordCount == 0 && receiveData.First().Equals((char)ACK))
+            {
+                tmpHeader = m_Serial.Encoding.GetString(new byte[] {ACK }) + "F8" + HostStationNo.ToString("X2") + NetworkNo.ToString("X2") + PCNo.ToString("X2") + "03FF" + "00" + "00";
+                if (!receiveData.Contains(tmpHeader)) throw new Exception("Received wrong message. (Different header.)" + Environment.NewLine + "Message : " + receiveData);
+                receiveData = "0000";
+            }
+            else if(receiveData.First().Equals((char)STX))
+            {
+                tmpHeader = m_Serial.Encoding.GetString(new byte[] { STX }) + "F8" + HostStationNo.ToString("X2") + NetworkNo.ToString("X2") + PCNo.ToString("X2") + "03FF" + "00" + "00";
+
+                if (!receiveData.Contains(tmpHeader)) throw new Exception("Received wrong message. (Different header.)" + Environment.NewLine + "Message : " + receiveData);
+
+                var tmpData = receiveData.Substring(1, receiveData.Length - (1 + 2 + POSTFIX_STRING.Length));
+                var receivedChecksum = receiveData.Substring(receiveData.Length - (2 + POSTFIX_STRING.Length), 2);         
+                if(!receivedChecksum.Equals(this.CalculateCheckSum(tmpData))) throw new Exception("Different checksum. (Maybe corrupted.)" + Environment.NewLine + "Message : " + receiveData);
+
+                var tmpEtx = receiveData.IndexOf((char)ETX);
+                if(tmpEtx == -1) throw new Exception("Received wrong message. (not include ETX in message.)" + Environment.NewLine + "Message : " + receiveData);
+                receiveData = receiveData.Substring(tmpHeader.Length, receiveData.Length - tmpHeader.Length - (receiveData.Length - tmpEtx));
+            }
+            else if(receiveData.First().Equals((char)NAK)) throw new Exception("Received error message." + Environment.NewLine + "Error code : " + receiveData.Substring(receiveData.Length - (4 + POSTFIX_STRING.Length), 4));
+            else throw new Exception("Invalid message format." + Environment.NewLine + "Message : " + receiveData);
+
+
+            return PLCConverter.ConvertHexStringToByteArray(receiveData);
+        }
+        #endregion
 
         #endregion
     }
