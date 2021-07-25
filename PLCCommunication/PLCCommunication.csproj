@@ -62,7 +62,12 @@
     <Compile Include="Mitsubishi\SerialSetting.cs" />
     <Compile Include="Mitsubishi\SocketPLC.cs" />
     <Compile Include="Mitsubishi\SocketSetting.cs" />
+    <Compile Include="Panasonic\Controls\Collections.cs" />
     <Compile Include="Panasonic\PLCPacket.cs" />
+    <Compile Include="Panasonic\SerialPLC.cs" />
+    <Compile Include="Panasonic\SerialSetting.cs" />
+    <Compile Include="Panasonic\SocketPLC.cs" />
+    <Compile Include="Panasonic\SocketSetting.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup />

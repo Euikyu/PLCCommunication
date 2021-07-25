@@ -1140,9 +1140,9 @@ namespace PLCCommunication.Mitsubishi
                     case EPLCProtocolFormat.Binary:
                         var tmpByteArray = new byte[] { 0xD0, 0x00, NetworkNo, PCNo, 0xFF, 0x03, 0x00 };
 
-                        for (int i = 0; i < tmpByteArray.Length; i++) if (tmpByteArray[i] != m_CurrentData[i]) throw new Exception("Received wrong message. (Different header.)" + Environment.NewLine + "Message : " + BitConverter.ToString(tmpByteArray));
+                        for (int i = 0; i < tmpByteArray.Length; i++) if (tmpByteArray[i] != m_CurrentData[i]) throw new Exception("Received wrong message. (Different header.)" + Environment.NewLine + "Message : " + BitConverter.ToString(m_CurrentData));
                         ushort byteCount = BitConverter.ToUInt16(m_CurrentData.Skip(tmpByteArray.Length).Take(2).ToArray(), 0);
-                        if (byteCount != m_CurrentData.Length - tmpByteArray.Length - 2 || byteCount != wordCount * 2 + 2) throw new Exception("Received wrong message. (Different message length.)" + Environment.NewLine + "Message : " + BitConverter.ToString(tmpByteArray));
+                        if (byteCount != m_CurrentData.Length - tmpByteArray.Length - 2 || byteCount != wordCount * 2 + 2) throw new Exception("Received wrong message. (Different message length.)" + Environment.NewLine + "Message : " + BitConverter.ToString(m_CurrentData));
                         int errInt = BitConverter.ToUInt16(m_CurrentData.Skip(tmpByteArray.Length + 2).Take(2).ToArray(), 0);
                         if (errInt != 0) throw new Exception("Received error message." + Environment.NewLine + "Error code : " + PLCConverter.ConvertValueToString(m_CurrentData.Take(tmpByteArray.Length + 4).ToArray()));
 
