@@ -8,9 +8,12 @@ using System.Threading.Tasks;
 
 namespace PLCCommunication.Panasonic
 {
+    /// <summary>
+    /// Enum related to PLC device code.
+    /// </summary>
     public enum EPLCDeviceCode
     {
-        //Use Binary
+        //Use binary
         /// <summary>
         /// Link relay contact. (only use binary)
         /// </summary>
@@ -56,7 +59,7 @@ namespace PLCCommunication.Panasonic
         /// </summary>
         FL = 10,
 
-        //Use ASCII Contact (Read-only)
+        //Use ASCII contact (Read-only)
         /// <summary>
         /// Timer value. (only use ASCII and read-only)
         /// </summary>
@@ -70,7 +73,7 @@ namespace PLCCommunication.Panasonic
         /// </summary>
         X = 102,
 
-        //Read-write both
+        //Read-write both contact
         /// <summary>
         /// External output contact. (only use ASCII)
         /// </summary>
@@ -84,7 +87,7 @@ namespace PLCCommunication.Panasonic
         /// </summary>
         C_L = 152,
 
-        //Use ASCII Data
+        //Use ASCII data
         /// <summary>
         /// Link register. (only use ASCII)
         /// </summary>
@@ -158,6 +161,7 @@ namespace PLCCommunication.Panasonic
         /// </summary>
         /// <param name="code">PLC device code to use.</param>
         /// <param name="address">Address to use.</param>
+        /// <param name="isContact">Value to determine that is contact.</param>
         /// <param name="isRead">Proof to read.</param>
         /// <param name="readWordCount">Amount words to read.</param>
         public PLCSendingPacket(EPLCDeviceCode code, string address, bool isContact, bool isRead, ushort readWordCount)
@@ -201,10 +205,11 @@ namespace PLCCommunication.Panasonic
         }
 
         /// <summary>
-        /// Generate PLC data to write from this value & code & address.
+        /// Generate PLC data to write from this value &amp; code &amp; address.
         /// </summary>
         /// <param name="code">PLC device code to use.</param>
         /// <param name="address">Address to use.</param>
+        /// <param name="isContact">Value to determine that is contact.</param>
         /// <param name="value">Value to write.</param>
         public PLCSendingPacket(EPLCDeviceCode code, string address, bool isContact, object value)
         {
@@ -266,11 +271,14 @@ namespace PLCCommunication.Panasonic
         /// First address read.
         /// </summary>
         public int Address { get; }
+        /// <summary>
+        /// Read address of contact.
+        /// </summary>
         public string ContactAddress { get; }
         #endregion
 
         /// <summary>
-        /// Generate PLC data received from this address & code.
+        /// Generate PLC data received from this address &amp; code.
         /// </summary>
         /// <param name="receivedData">Received data from PLC.</param>
         /// <param name="code">Data's PLC device code.</param>
@@ -585,6 +593,9 @@ namespace PLCCommunication.Panasonic
         #endregion
     }
 
+    /// <summary>
+    /// Class related to a converter on PLC's generic data. 
+    /// </summary>
     internal static class PLCConverter
     {
         #region Convert Data Methods

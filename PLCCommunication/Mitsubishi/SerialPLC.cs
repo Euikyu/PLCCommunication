@@ -11,6 +11,9 @@ using System.Xml.Serialization;
 
 namespace PLCCommunication.Mitsubishi
 {
+    /// <summary>
+    /// Class related to serial communication of PLC.
+    /// </summary>
     public class SerialPLC : IPLC
     {
         #region Fields
@@ -47,51 +50,77 @@ namespace PLCCommunication.Mitsubishi
 
 
         #region Properties
-
+        /// <summary>
+        /// Destination serial port name to connect.
+        /// </summary>
         public string PortName
         {
             get { return m_Setting == null ? string.Empty : m_Setting.PortName; }
             set { if (m_Setting != null) m_Setting.PortName = value; }
         }
+        /// <summary>
+        /// Destination baud rate to connect.
+        /// </summary>
         public int BaudRate
         {
             get { return m_Setting == null ? -1 : m_Setting.BaudRate; }
             set { if (m_Setting != null) m_Setting.BaudRate = value; }
         }
+        /// <summary>
+        /// Data bits for transmit.
+        /// </summary>
         public int DataBits
         {
             get { return m_Setting == null ? -1 : m_Setting.DataBits; }
             set { if (m_Setting != null) m_Setting.DataBits = value; }
         }
+        /// <summary>
+        /// Parity type to communicate.
+        /// </summary>
         public Parity Parity
         {
             get { return m_Setting == null ? Parity.None : m_Setting.Parity; }
             set { if (m_Setting != null) m_Setting.Parity = value; }
         }
+        /// <summary>
+        /// Stop bits type to communicate.
+        /// </summary>
         public StopBits StopBits
         {
             get { return m_Setting == null ? StopBits.One : m_Setting.StopBits; }
             set { if (m_Setting != null) m_Setting.StopBits = value; }
         }
+        /// <summary>
+        /// Handshake type to communicate.
+        /// </summary>
         public Handshake Handshake
         {
             get { return m_Setting == null ? Handshake.None : m_Setting.Handshake; }
             set { if (m_Setting != null) m_Setting.Handshake = value; }
         }
+        /// <summary>
+        /// Initialized host station code in PLC. (Default value is 0x00)
+        /// </summary>
+        public byte HostStationNo
+        {
+            get { return m_Setting == null ? byte.MinValue : m_Setting.HostStationNo; }
+            set { if (m_Setting != null) m_Setting.HostStationNo = value; }
+        }
+        /// <summary>
+        /// Initialized network code in PLC. (Default value is 0x00)
+        /// </summary>
         public byte NetworkNo
         {
             get { return m_Setting == null ? byte.MinValue : m_Setting.NetworkNo; }
             set { if (m_Setting != null) m_Setting.NetworkNo = value; }
         }
+        /// <summary>
+        /// Initialized PC code in PLC. (Default value is 0xFF)
+        /// </summary>
         public byte PCNo
         {
             get { return m_Setting == null ? byte.MaxValue : m_Setting.PCNo; }
             set { if (m_Setting != null) m_Setting.PCNo = value; }
-        }
-        public byte HostStationNo
-        {
-            get { return m_Setting == null ? byte.MinValue : m_Setting.HostStationNo; }
-            set { if (m_Setting != null) m_Setting.HostStationNo = value; }
         }
         /// <summary>
         /// Reconnecting count when disconnected.
@@ -102,6 +131,10 @@ namespace PLCCommunication.Mitsubishi
             get { return m_Setting == null ? ushort.MinValue : m_Setting.ReconnectCount; }
             set { if (m_Setting != null) m_Setting.ReconnectCount = value; }
         }
+        /// <summary>
+        /// Define that PLC is successfully communicating PC.
+        /// (NULL is disconnected, and false is destination not ready.)
+        /// </summary>
         public bool? IsConnected
         {
             get
@@ -114,7 +147,9 @@ namespace PLCCommunication.Mitsubishi
             }
         }
         #endregion
-
+        /// <summary>
+        /// Generate serial communication instance with default value.
+        /// </summary>
         public SerialPLC()
         {
             m_Setting = new SerialSetting();
@@ -125,8 +160,23 @@ namespace PLCCommunication.Mitsubishi
             this.Parity = Parity.None;
             this.StopBits = StopBits.One;
             this.Handshake = Handshake.None;
+            this.HostStationNo = 0x00;
+            this.NetworkNo = 0x00;
+            this.PCNo = 0xFF;
         }
-        public SerialPLC(string portName, int baudRate, int dataBits = 8, Parity parity = Parity.None, StopBits stopBits = StopBits.One, Handshake handshake = Handshake.None)
+        /// <summary>
+        /// Generate serial communication instance with specific values.
+        /// </summary>
+        /// <param name="portName">Serial port name to connect.</param>
+        /// <param name="baudRate">Serial baud rate to connect.</param>
+        /// <param name="dataBits">Data bits for transmit.</param>
+        /// <param name="parity">Parity type to communicate.</param>
+        /// <param name="stopBits">Stop bits type to communicate.</param>
+        /// <param name="handshake">Handshake type to communicate.</param>
+        /// <param name="hostStationNo">Host station number to communicate.</param>
+        /// <param name="networkNo">Network number to communicate.</param>
+        /// <param name="pcNo">PC number to communicate.</param>
+        public SerialPLC(string portName, int baudRate, int dataBits = 8, Parity parity = Parity.None, StopBits stopBits = StopBits.One, Handshake handshake = Handshake.None, byte hostStationNo = 0x00, byte networkNo = 0x00, byte pcNo = 0xFF)
         {
             m_Setting = new SerialSetting();
 
@@ -136,9 +186,14 @@ namespace PLCCommunication.Mitsubishi
             this.DataBits = dataBits;
             this.StopBits = stopBits;
             this.Handshake = handshake;
+            this.HostStationNo = hostStationNo;
+            this.NetworkNo = networkNo;
+            this.PCNo = pcNo;
         }
 
+#pragma warning disable CS1591 // 공개된 형식 또는 멤버에 대한 XML 주석이 없습니다.
         public void Dispose()
+#pragma warning restore CS1591 // 공개된 형식 또는 멤버에 대한 XML 주석이 없습니다.
         {
             this.Disconnect();
             if(m_Serial != null) m_Serial.Dispose();
@@ -146,6 +201,9 @@ namespace PLCCommunication.Mitsubishi
 
 
         #region Methods
+        /// <summary>
+        /// Load setting files with default path.
+        /// </summary>
         public void Load()
         {
             if (!File.Exists(_DefaultPath + @"\Mitsubishi_Serial.xml"))
@@ -158,6 +216,10 @@ namespace PLCCommunication.Mitsubishi
                 m_Setting = serializer.Deserialize(sr) as SerialSetting ?? m_Setting;
             }
         }
+        /// <summary>
+        /// Load setting files with specific path.
+        /// </summary>
+        /// <param name="filePath">File path to load.</param>
         public void Load(string filePath)
         {
             if (!File.Exists(filePath))
@@ -170,6 +232,9 @@ namespace PLCCommunication.Mitsubishi
                 m_Setting = serializer.Deserialize(sr) as SerialSetting ?? m_Setting;
             }
         }
+        /// <summary>
+        /// Save setting files with default path.
+        /// </summary>
         public void Save()
         {
             Directory.CreateDirectory(_DefaultPath);
@@ -179,6 +244,10 @@ namespace PLCCommunication.Mitsubishi
                 serializer.Serialize(sw, m_Setting ?? new SerialSetting());
             }
         }
+        /// <summary>
+        /// Save setting files with specific path.
+        /// </summary>
+        /// <param name="filePath">Path to save.</param>
         public void Save(string filePath)
         {
             FileInfo fi = new FileInfo(filePath);
@@ -200,7 +269,9 @@ namespace PLCCommunication.Mitsubishi
                 serializer.Serialize(sw, m_Setting ?? new SerialSetting());
             }
         }
-
+        /// <summary>
+        /// Connect PLC.
+        /// </summary>
         public void Connect()
         {
             if (IsConnected != null) throw new Exception("Already Opened.");
@@ -213,6 +284,11 @@ namespace PLCCommunication.Mitsubishi
                 m_ConnectionCheckThread.Start();
             }
         }
+        /// <summary>
+        /// Connect PLC with new Port name &amp; baud rate.
+        /// </summary>
+        /// <param name="portName">Serial port name to connect newly.</param>
+        /// <param name="baudRate">Serial baud rate to connect newly.</param>
         public void Connect(string portName, int baudRate)
         {
             if (IsConnected != null) throw new Exception("Already Opened.");
@@ -222,6 +298,15 @@ namespace PLCCommunication.Mitsubishi
 
             this.Connect();
         }
+        /// <summary>
+        /// Connect PLC with new several parameters.
+        /// </summary>
+        /// <param name="portName">Serial port name to connect newly.</param>
+        /// <param name="baudRate">Serial baud rate to connect newly.</param>
+        /// <param name="dataBits">Data bits for transmit newly.</param>
+        /// <param name="parity">Parity type newly.</param>
+        /// <param name="stopBits">Stop bits type newly.</param>
+        /// <param name="handshake">Handshake type newly.</param>
         public void Connect(string portName, int baudRate, int dataBits, Parity parity, StopBits stopBits, Handshake handshake)
         {
             if (IsConnected != null) throw new Exception("Already Opened.");
@@ -234,6 +319,10 @@ namespace PLCCommunication.Mitsubishi
             this.Handshake = handshake;
             this.Connect();
         }
+
+        /// <summary>
+        /// Connect serial communication.
+        /// </summary>
         private void SerialConnect()
         {
             m_Serial = new SerialPort()
@@ -332,7 +421,9 @@ namespace PLCCommunication.Mitsubishi
                 System.Windows.MessageBox.Show(err.Message);
             }
         }
-
+        /// <summary>
+        /// Disconnect PLC.
+        /// </summary>
         public void Disconnect()
         {
             if(m_ConnectionCheckThread != null && m_ConnectionCheckThread.IsAlive)
@@ -342,6 +433,9 @@ namespace PLCCommunication.Mitsubishi
             }
             this.SerialDisconnect();
         }
+        /// <summary>
+        /// Flush this stream.
+        /// </summary>
         private void ClearMessages()
         {
             lock(_SequenceLock) if (m_SequenceQueue != null) m_SequenceQueue.Clear();
@@ -352,6 +446,9 @@ namespace PLCCommunication.Mitsubishi
             }
             m_TerminateEvent.Set();
         }
+        /// <summary>
+        /// Disconnect serial communication.
+        /// </summary>
         private void SerialDisconnect()
         {
             this.ClearMessages();
@@ -361,6 +458,10 @@ namespace PLCCommunication.Mitsubishi
                 m_Serial.Close();
             }
         }
+
+        /// <summary>
+        /// Refresh current connection state.
+        /// </summary>
         public void Refresh()
         {
             this.SerialDisconnect();

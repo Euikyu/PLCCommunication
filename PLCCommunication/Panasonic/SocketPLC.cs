@@ -95,7 +95,7 @@ namespace PLCCommunication.Panasonic
         #endregion
 
         /// <summary>
-        /// Create socket communication class on default value.
+        /// Generate socket communication class on default value.
         /// </summary>
         public SocketPLC()
         {
@@ -109,7 +109,7 @@ namespace PLCCommunication.Panasonic
         }
 
         /// <summary>
-        /// Create socket communication class on specific values.
+        /// Generate socket communication class on specific values.
         /// </summary>
         /// <param name="ipAddress">IP to connect.</param>
         /// <param name="portNum">Port number to connect.</param>
@@ -127,7 +127,10 @@ namespace PLCCommunication.Panasonic
             this.Timeout = timeout;
         }
 
+
+#pragma warning disable CS1591 // 공개된 형식 또는 멤버에 대한 XML 주석이 없습니다.
         public void Dispose()
+#pragma warning restore CS1591 // 공개된 형식 또는 멤버에 대한 XML 주석이 없습니다.
         {
             this.Disconnect();
         }
@@ -136,7 +139,7 @@ namespace PLCCommunication.Panasonic
         #region Methods
 
         /// <summary>
-        /// Connect PLC to current IP & port number.
+        /// Connect PLC to current IP &amp; port number.
         /// </summary>
         /// <returns></returns>
         public void Connect()
@@ -151,7 +154,7 @@ namespace PLCCommunication.Panasonic
         }
 
         /// <summary>
-        /// Connect PLC to specific IP & port number.
+        /// Connect PLC to specific IP &amp; port number.
         /// </summary>
         /// <param name="ip">IP to connect newly.</param>
         /// <param name="portNum">Port number to connect newly.</param>

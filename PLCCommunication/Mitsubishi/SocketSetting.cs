@@ -12,9 +12,12 @@ namespace PLCCommunication.Mitsubishi
     /// </summary>
     public class SocketSetting
     {
+        #region Fields
         private IPAddress m_IPAddress;
         private string m_IP;
+        #endregion
 
+        #region Properties
         /// <summary>
         /// Destination IP of PLC to connect.
         /// </summary>
@@ -64,10 +67,23 @@ namespace PLCCommunication.Mitsubishi
         /// Reconnecting count when disconnected.
         /// </summary>
         public ushort ReconnectCount { get; set; }
+        #endregion
 
+        /// <summary>
+        /// Generate socket communication setting instance.
+        /// </summary>
+        public SocketSetting() { }
+
+        #region Methods
+        /// <summary>
+        /// Get IPAddress instance from string IP address.
+        /// </summary>
+        /// <returns>Current IP Address instance.</returns>
         public IPAddress GetIPAddress()
         {
             return m_IPAddress;
         }
+        #endregion
+
     }
 }

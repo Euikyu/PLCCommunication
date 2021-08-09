@@ -31,15 +31,20 @@ namespace PLCCommunication.Mitsubishi.Controls
 
         private char m_SeparateChar;
         private int m_SelectedSeparateCharIndex;
-        #endregion
-
-        #region Properties
+#pragma warning disable CS1591 // 공개된 형식 또는 멤버에 대한 XML 주석이 없습니다.
         public event PropertyChangedEventHandler PropertyChanged;
 
         protected void RaisePropertyChanged(string propertyName)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
+#pragma warning restore CS1591 // 공개된 형식 또는 멤버에 대한 XML 주석이 없습니다.
+        #endregion
+
+        #region Properties
+        /// <summary>
+        /// Destination port name to connect.
+        /// </summary>
         public string PortName
         {
             get
@@ -55,6 +60,9 @@ namespace PLCCommunication.Mitsubishi.Controls
                 }
             }
         }
+        /// <summary>
+        /// Destination baud rate to connect.
+        /// </summary>
         public int BaudRate
         {
             get
@@ -70,6 +78,9 @@ namespace PLCCommunication.Mitsubishi.Controls
                 }
             }
         }
+        /// <summary>
+        /// Data bits for transmit.
+        /// </summary>
         public int DataBits
         {
             get
@@ -85,6 +96,9 @@ namespace PLCCommunication.Mitsubishi.Controls
                 }
             }
         }
+        /// <summary>
+        /// Parity type to communicate.
+        /// </summary>
         public Parity Parity
         {
             get
@@ -100,6 +114,9 @@ namespace PLCCommunication.Mitsubishi.Controls
                 }
             }
         }
+        /// <summary>
+        /// Stop bits type to communicate.
+        /// </summary>
         public StopBits StopBits
         {
             get
@@ -115,6 +132,9 @@ namespace PLCCommunication.Mitsubishi.Controls
                 }
             }
         }
+        /// <summary>
+        /// Handshake type to communicate.
+        /// </summary>
         public Handshake Handshake
         {
             get
@@ -130,6 +150,9 @@ namespace PLCCommunication.Mitsubishi.Controls
                 }
             }
         }
+        /// <summary>
+        /// Initialized host station code in PLC. (Default value is 0x00)
+        /// </summary>
         public byte HostStationNo
         {
             get
@@ -145,6 +168,9 @@ namespace PLCCommunication.Mitsubishi.Controls
                 }
             }
         }
+        /// <summary>
+        /// Initialized network code in PLC. (Default value is 0x00)
+        /// </summary>
         public byte NetworkNo
         {
             get
@@ -160,6 +186,9 @@ namespace PLCCommunication.Mitsubishi.Controls
                 }
             }
         }
+        /// <summary>
+        /// Initialized PC code in PLC. (Default value is 0xFF)
+        /// </summary>
         public byte PCNo
         {
             get
@@ -175,6 +204,10 @@ namespace PLCCommunication.Mitsubishi.Controls
                 }
             }
         }
+        /// <summary>
+        /// Define that PLC is successfully communicating PC.
+        /// (NULL is disconnected, and false is destination not ready.)
+        /// </summary>
         public bool? IsConnected
         {
             get
@@ -183,6 +216,9 @@ namespace PLCCommunication.Mitsubishi.Controls
                 else return null;
             }
         }
+        /// <summary>
+        /// Character index to separate between values. 
+        /// </summary>
         public int SelectedSeparateCharIndex
         {
             get
@@ -218,12 +254,26 @@ namespace PLCCommunication.Mitsubishi.Controls
         }
 
         //Collections
+        /// <summary>
+        /// Port name list.
+        /// </summary>
         public ObservableCollection<string> PortList { get; set; }
+        /// <summary>
+        /// Command list to write.
+        /// </summary>
         public ObservableCollection<SendCommand> WriteCommandList { get; set; }
+        /// <summary>
+        /// Command list to read. 
+        /// </summary>
         public ObservableCollection<SendCommand> ReadCommandList { get; set; }
+        /// <summary>
+        /// Result list.
+        /// </summary>
         public ObservableCollection<ResultData> ResultList { get; set; }
         #endregion
-
+        /// <summary>
+        /// Generate Serial Tester.
+        /// </summary>
         public SerialTester()
         {
             InitializeComponent();
@@ -300,7 +350,7 @@ namespace PLCCommunication.Mitsubishi.Controls
             this.RaisePropertyChanged(nameof(this.PCNo));
             this.RaisePropertyChanged(nameof(this.SelectedSeparateCharIndex));
         }
-        internal void OnLoad()
+        private void OnLoad()
         {
             m_PLC.Load();
             this.UpdateProperties();
@@ -321,7 +371,7 @@ namespace PLCCommunication.Mitsubishi.Controls
             }
         }
 
-        internal void OnClose()
+        private void OnClose()
         {
             if (m_ConnectionCheckThread != null && m_ConnectionCheckThread.IsAlive)
             {
@@ -335,7 +385,7 @@ namespace PLCCommunication.Mitsubishi.Controls
             }
         }
 
-        internal void Connect_button_Click()
+        private void Connect_button_Click()
         {
             if (IsConnected.HasValue)
             {
@@ -361,7 +411,7 @@ namespace PLCCommunication.Mitsubishi.Controls
             }
         }
 
-        internal void Write_button_Click()
+        private void Write_button_Click()
         {
             try
             {
@@ -388,7 +438,7 @@ namespace PLCCommunication.Mitsubishi.Controls
                 MessageBox.Show(err.Message);
             }
         }
-        internal void Read_button_Click()
+        private void Read_button_Click()
         {
             try
             {
@@ -497,11 +547,11 @@ namespace PLCCommunication.Mitsubishi.Controls
             }
         }
 
-        internal void NewWriteCommand_button_Click()
+        private void NewWriteCommand_button_Click()
         {
             WriteCommandList.Add(new SendCommand());
         }
-        internal void DeleteWriteCommand_button_Click(int selectedIndex)
+        private void DeleteWriteCommand_button_Click(int selectedIndex)
         {
             if (selectedIndex != -1 && WriteCommandList.Count > selectedIndex)
             {
@@ -509,11 +559,11 @@ namespace PLCCommunication.Mitsubishi.Controls
             }
         }
 
-        internal void NewReadCommand_button_Click()
+        private void NewReadCommand_button_Click()
         {
             ReadCommandList.Add(new SendCommand());
         }
-        internal void DeleteReadCommand_button_Click(int selectedIndex)
+        private void DeleteReadCommand_button_Click(int selectedIndex)
         {
             if (selectedIndex != -1 && ReadCommandList.Count > selectedIndex)
             {

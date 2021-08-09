@@ -16,11 +16,10 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 
-namespace PLCCommunication.Mitsubishi.Controls
-{
-    /// <summary>
-    /// SocketTester.xaml에 대한 상호 작용 논리
-    /// </summary>
+namespace PLCCommunication.Panasonic.Controls
+{/// <summary>
+ /// SocketTester.xaml에 대한 상호 작용 논리
+ /// </summary>
     public partial class SocketTester : UserControl, INotifyPropertyChanged
     {
         #region Fields
@@ -30,9 +29,6 @@ namespace PLCCommunication.Mitsubishi.Controls
 
         private char m_SeparateChar;
         private int m_SelectedSeparateCharIndex;
-        #endregion
-
-        #region Properties
 #pragma warning disable CS1591 // 공개된 형식 또는 멤버에 대한 XML 주석이 없습니다.
         public event PropertyChangedEventHandler PropertyChanged;
 
@@ -41,7 +37,9 @@ namespace PLCCommunication.Mitsubishi.Controls
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
 #pragma warning restore CS1591 // 공개된 형식 또는 멤버에 대한 XML 주석이 없습니다.
+        #endregion
 
+        #region Properties
         /// <summary>
         /// Destination IP of PLC to connect.
         /// </summary>
@@ -79,7 +77,7 @@ namespace PLCCommunication.Mitsubishi.Controls
             }
         }
         /// <summary>
-        /// Value to determine is contact.
+        /// Value to determine binary format.
         /// </summary>
         public bool IsBinary
         {
@@ -105,42 +103,6 @@ namespace PLCCommunication.Mitsubishi.Controls
             }
         }
         /// <summary>
-        /// Initialized network code in PLC. (Default value is 0x00)
-        /// </summary>
-        public byte NetworkNo
-        {
-            get
-            {
-                if (m_PLC != null) return m_PLC.NetworkNo;
-                else return 0;
-            }
-            set
-            {
-                if (m_PLC != null)
-                {
-                    m_PLC.NetworkNo = value;
-                }
-            }
-        }
-        /// <summary>
-        /// Initialized PC code in PLC. (Default value is 0xFF)
-        /// </summary>
-        public byte PCNo
-        {
-            get
-            {
-                if (m_PLC != null) return m_PLC.PCNo;
-                else return 255;
-            }
-            set
-            {
-                if (m_PLC != null)
-                {
-                    m_PLC.PCNo = value;
-                }
-            }
-        }
-        /// <summary>
         /// Define that PLC is successfully communicating PC.
         /// </summary>
         public bool IsConnected
@@ -152,7 +114,7 @@ namespace PLCCommunication.Mitsubishi.Controls
             }
         }
         /// <summary>
-        /// Character index to separate between values.
+        /// Character index to separate between values. 
         /// </summary>
         public int SelectedSeparateCharIndex
         {
@@ -219,7 +181,7 @@ namespace PLCCommunication.Mitsubishi.Controls
         }
 
         #region Methods
-        
+
         #region Events
         private void Tester_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
         {
@@ -273,11 +235,9 @@ namespace PLCCommunication.Mitsubishi.Controls
             this.RaisePropertyChanged(nameof(this.IP));
             this.RaisePropertyChanged(nameof(this.Port));
             this.RaisePropertyChanged(nameof(this.IsBinary));
-            this.RaisePropertyChanged(nameof(this.NetworkNo));
-            this.RaisePropertyChanged(nameof(this.PCNo));
             this.RaisePropertyChanged(nameof(this.SelectedSeparateCharIndex));
         }
-        internal void OnLoad()
+        private void OnLoad()
         {
             m_PLC.Load();
             this.UpdateProperties();
@@ -298,7 +258,7 @@ namespace PLCCommunication.Mitsubishi.Controls
             }
         }
 
-        internal void OnClose()
+        private void OnClose()
         {
             if (m_ConnectionCheckThread != null && m_ConnectionCheckThread.IsAlive)
             {
@@ -312,7 +272,7 @@ namespace PLCCommunication.Mitsubishi.Controls
             }
         }
 
-        internal void Connect_button_Click()
+        private void Connect_button_Click()
         {
             if (IsConnected)
             {
@@ -338,7 +298,7 @@ namespace PLCCommunication.Mitsubishi.Controls
             }
         }
 
-        internal void Write_button_Click()
+        private void Write_button_Click()
         {
             try
             {
@@ -355,7 +315,7 @@ namespace PLCCommunication.Mitsubishi.Controls
                     {
                         dataList.Add(this.ConvertPLCData(WriteCommandList, i));
                     }
-                    m_PLC.Write(dataList);
+                    //m_PLC.Write(dataList);
                 }
 
                 MessageBox.Show("Write Successfully.");
@@ -365,7 +325,7 @@ namespace PLCCommunication.Mitsubishi.Controls
                 MessageBox.Show(err.Message);
             }
         }
-        internal void Read_button_Click()
+        private void Read_button_Click()
         {
             try
             {
@@ -386,7 +346,7 @@ namespace PLCCommunication.Mitsubishi.Controls
                     {
                         dataList.Add(this.ConvertPLCData(ReadCommandList, i, true));
                     }
-                    m_PLC.Read(dataList, ref resList);
+                    //m_PLC.Read(dataList, ref resList);
                     for (int i = 0; i < resList.Count; i++)
                     {
                         ResultList.Add(new ResultData(resList[i], m_SeparateChar));
@@ -466,19 +426,20 @@ namespace PLCCommunication.Mitsubishi.Controls
                         val = sendList[index].Value;
                         break;
                 }
-                return new PLCSendingPacket(sendList[index].DeviceCode, sendList[index].DeviceNumber, val);
+                //return new PLCSendingPacket(sendList[index].DeviceCode, sendList[index].DeviceNumber, val);
             }
             else
             {
-                return new PLCSendingPacket(sendList[index].DeviceCode, sendList[index].DeviceNumber, isRead, sendList[index].WordCount);
+                //return new PLCSendingPacket(sendList[index].DeviceCode, sendList[index].DeviceNumber, isRead, sendList[index].WordCount);
             }
+            return null;
         }
 
-        internal void NewWriteCommand_button_Click()
+        private void NewWriteCommand_button_Click()
         {
             WriteCommandList.Add(new SendCommand());
         }
-        internal void DeleteWriteCommand_button_Click(int selectedIndex)
+        private void DeleteWriteCommand_button_Click(int selectedIndex)
         {
             if (selectedIndex != -1 && WriteCommandList.Count > selectedIndex)
             {
@@ -486,11 +447,11 @@ namespace PLCCommunication.Mitsubishi.Controls
             }
         }
 
-        internal void NewReadCommand_button_Click()
+        private void NewReadCommand_button_Click()
         {
             ReadCommandList.Add(new SendCommand());
         }
-        internal void DeleteReadCommand_button_Click(int selectedIndex)
+        private void DeleteReadCommand_button_Click(int selectedIndex)
         {
             if (selectedIndex != -1 && ReadCommandList.Count > selectedIndex)
             {

@@ -8,6 +8,6 @@
         mc:Ignorable="d"
         Title="Window1">
     <Grid>
-        <mit:SerialTester x:Name="tester"/>
+        <mit:SocketTester x:Name="tester"/>
     </Grid>
 </Window>

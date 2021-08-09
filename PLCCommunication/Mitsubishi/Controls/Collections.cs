@@ -7,8 +7,12 @@ using System.Threading.Tasks;
 
 namespace PLCCommunication.Mitsubishi.Controls
 {
+    /// <summary>
+    /// Enum related to available data types.
+    /// </summary>
     public enum EParseDataType
     {
+#pragma warning disable CS1591 // 공개된 형식 또는 멤버에 대한 XML 주석이 없습니다.
         Byte,
         Boolean,
         Short,
@@ -17,13 +21,27 @@ namespace PLCCommunication.Mitsubishi.Controls
         Float,
         Double,
         String
+#pragma warning restore CS1591 // 공개된 형식 또는 멤버에 대한 XML 주석이 없습니다.
     }
+    
+    /// <summary>
+    /// Command to sending messages to PLC at using tester.
+    /// </summary>
     public class SendCommand
     {
+        #region Fields
         private int m_DeviceNumber;
         private string m_DeviceHexNumber;
+        #endregion
 
+        #region Properties
+        /// <summary>
+        /// Defining the PLC device code to send.
+        /// </summary>
         public EPLCDeviceCode DeviceCode { get; set; }
+        /// <summary>
+        /// Address of device to send.
+        /// </summary>
         public int DeviceNumber
         {
             get
@@ -44,6 +62,10 @@ namespace PLCCommunication.Mitsubishi.Controls
                 m_DeviceNumber = value;
             }
         }
+        /// <summary>
+        /// Hex decimal address of device to send.
+        /// (it use external contact address.)
+        /// </summary>
         public string DeviceHexNumber
         {
             get
@@ -58,10 +80,24 @@ namespace PLCCommunication.Mitsubishi.Controls
                 else m_DeviceNumber = 0;
             }
         }
+        /// <summary>
+        /// Word count to read. 
+        /// (Only use to reading data.)
+        /// </summary>
         public ushort WordCount { get; set; }
+        /// <summary>
+        /// Data type of values to parse.
+        /// </summary>
         public EParseDataType DataType { get; set; }
+        /// <summary>
+        /// Parsed data text.
+        /// </summary>
         public string Value { get; set; }
+        #endregion
 
+        /// <summary>
+        /// Generate send command instance at using tester.
+        /// </summary>
         public SendCommand()
         {
             DeviceCode = EPLCDeviceCode.M;
@@ -70,6 +106,9 @@ namespace PLCCommunication.Mitsubishi.Controls
         }
     }
 
+    /// <summary>
+    /// Data containing messages received from PLC at using tester.
+    /// </summary>
     public class ResultData : INotifyPropertyChanged
     {
         #region Fields
@@ -77,10 +116,19 @@ namespace PLCCommunication.Mitsubishi.Controls
         private EParseDataType m_DataType;
         private char m_SeparateChar;
 
+#pragma warning disable CS1591 // 공개된 형식 또는 멤버에 대한 XML 주석이 없습니다.
         public event PropertyChangedEventHandler PropertyChanged;
+        protected void RaisePropertyChanged(string propertyName)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+#pragma warning restore CS1591 // 공개된 형식 또는 멤버에 대한 XML 주석이 없습니다.
         #endregion
 
         #region Properties
+        /// <summary>
+        /// Defining the PLC device code read.
+        /// </summary>
         public EPLCDeviceCode DeviceCode
         {
             get
@@ -89,6 +137,9 @@ namespace PLCCommunication.Mitsubishi.Controls
                 else return EPLCDeviceCode.M;
             }
         }
+        /// <summary>
+        /// Address of device read.
+        /// </summary>
         public int DeviceNumber
         {
             get
@@ -97,6 +148,9 @@ namespace PLCCommunication.Mitsubishi.Controls
                 else return -1;
             }
         }
+        /// <summary>
+        /// Hex decimal address of device read.
+        /// </summary>
         public string DeviceHexNumber
         {
             get
@@ -105,7 +159,9 @@ namespace PLCCommunication.Mitsubishi.Controls
                 else return "-1";
             }
         }
-
+        /// <summary>
+        /// Separation character between values.
+        /// </summary>
         public char SeparateChar
         {
             get { return m_SeparateChar; }
@@ -118,7 +174,9 @@ namespace PLCCommunication.Mitsubishi.Controls
                 }
             }
         }
-
+        /// <summary>
+        /// Data type of values to parse.
+        /// </summary>
         public EParseDataType DataType
         {
             get
@@ -134,9 +192,17 @@ namespace PLCCommunication.Mitsubishi.Controls
                 }
             }
         }
+        /// <summary>
+        /// Parsed data text.
+        /// </summary>
         public string ResultText { get; private set; }
         #endregion
 
+        /// <summary>
+        /// Generate Data containing messages received from PLC.
+        /// </summary>
+        /// <param name="receiveData">Received data.</param>
+        /// <param name="separateChar">Character to separate between values.</param>
         public ResultData(PLCReceivingPacket receiveData, char separateChar)
         {
             this.m_ReceiveData = receiveData;
@@ -182,7 +248,7 @@ namespace PLCCommunication.Mitsubishi.Controls
                     break;
 
                 case EParseDataType.String:
-                    ResultText = m_ReceiveData.GetASCIIString();
+                    ResultText = m_ReceiveData.GetASCIIString() + m_SeparateChar;
                     break;
 
                 case EParseDataType.Byte:
@@ -197,10 +263,6 @@ namespace PLCCommunication.Mitsubishi.Controls
             this.RaisePropertyChanged(nameof(ResultText));
         }
 
-        protected void RaisePropertyChanged(string propertyName)
-        {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-        }
         #endregion
     }
 }

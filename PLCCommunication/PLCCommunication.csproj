@@ -21,6 +21,7 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <DocumentationFile>bin\Debug\PLCCommunication.xml</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -29,6 +30,7 @@
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <DocumentationFile>bin\Release\PLCCommunication.xml</DocumentationFile>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="PresentationCore" />
@@ -63,6 +65,10 @@
     <Compile Include="Mitsubishi\SocketPLC.cs" />
     <Compile Include="Mitsubishi\SocketSetting.cs" />
     <Compile Include="Panasonic\Controls\Collections.cs" />
+    <Compile Include="Panasonic\Controls\Converters.cs" />
+    <Compile Include="Panasonic\Controls\SocketTester.xaml.cs">
+      <DependentUpon>SocketTester.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Panasonic\PLCPacket.cs" />
     <Compile Include="Panasonic\SerialPLC.cs" />
     <Compile Include="Panasonic\SerialSetting.cs" />
@@ -77,6 +83,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Mitsubishi\Controls\SocketTester.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Panasonic\Controls\SocketTester.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

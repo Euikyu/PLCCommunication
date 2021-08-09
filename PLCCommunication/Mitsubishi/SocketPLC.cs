@@ -13,7 +13,7 @@ using System.Xml.Serialization;
 namespace PLCCommunication.Mitsubishi
 {
     /// <summary>
-    /// Class related a TCP/IP socket communication on PLC.
+    /// Class related a TCP/IP socket communication of PLC.
     /// </summary>
     public class SocketPLC : IPLC
     {
@@ -50,15 +50,15 @@ namespace PLCCommunication.Mitsubishi
             set { if (m_Setting != null) m_Setting.PortNumber = value; }
         }
         /// <summary>
-        /// Initialized PC code in PLC LAN port. (Default value is 0xFF)
+        /// Initialized PC code in PLC. (Default value is 0xFF)
         /// </summary>
         public byte PCNo
         {
-            get { return m_Setting == null ? byte.MinValue : m_Setting.PCNo; }
+            get { return m_Setting == null ? byte.MaxValue : m_Setting.PCNo; }
             set { if (m_Setting != null) m_Setting.PCNo = value; }
         }
         /// <summary>
-        /// Initialized Network code in PLC LAN port. (Default value is 0x00)
+        /// Initialized network code in PLC. (Default value is 0x00)
         /// </summary>
         public byte NetworkNo
         {
@@ -103,7 +103,7 @@ namespace PLCCommunication.Mitsubishi
         #endregion
 
         /// <summary>
-        /// Create socket communication class on default value.
+        /// Generate socket communication instance with default value.
         /// </summary>
         public SocketPLC()
         {
@@ -118,7 +118,7 @@ namespace PLCCommunication.Mitsubishi
         }
 
         /// <summary>
-        /// Create socket communication class on specific values.
+        /// Generate socket communication instance with specific values.
         /// </summary>
         /// <param name="ipAddress">IP to connect.</param>
         /// <param name="portNum">Port number to connect.</param>
@@ -138,7 +138,10 @@ namespace PLCCommunication.Mitsubishi
             this.Timeout = timeout;
         }
 
+
+#pragma warning disable CS1591 // 공개된 형식 또는 멤버에 대한 XML 주석이 없습니다.
         public void Dispose()
+#pragma warning restore CS1591 // 공개된 형식 또는 멤버에 대한 XML 주석이 없습니다.
         {
             this.Disconnect();
         }
@@ -147,7 +150,7 @@ namespace PLCCommunication.Mitsubishi
         #region Methods
 
         /// <summary>
-        /// Connect PLC to current IP & port number.
+        /// Connect PLC to current IP &amp; port number.
         /// </summary>
         /// <returns></returns>
         public void Connect()
@@ -162,7 +165,7 @@ namespace PLCCommunication.Mitsubishi
         }
 
         /// <summary>
-        /// Connect PLC to specific IP & port number.
+        /// Connect PLC to specific IP &amp; port number.
         /// </summary>
         /// <param name="ip">IP to connect newly.</param>
         /// <param name="portNum">Port number to connect newly.</param>
@@ -333,6 +336,10 @@ namespace PLCCommunication.Mitsubishi
                 System.Windows.MessageBox.Show(err.Message);
             }
         }
+
+        /// <summary>
+        /// Load setting files with default path.
+        /// </summary>
         public void Load()
         {
             if(!File.Exists(_DefaultPath + @"\Mitsubishi_Socket.xml"))
@@ -346,6 +353,10 @@ namespace PLCCommunication.Mitsubishi
             }
         }
 
+        /// <summary>
+        /// Load setting files with specific path.
+        /// </summary>
+        /// <param name="filePath">File path to load.</param>
         public void Load(string filePath)
         {
             if (!File.Exists(filePath))
@@ -358,7 +369,9 @@ namespace PLCCommunication.Mitsubishi
                 m_Setting = serializer.Deserialize(sr) as SocketSetting ?? m_Setting;
             }
         }
-
+        /// <summary>
+        /// Save setting files with default path.
+        /// </summary>
         public void Save()
         {
             Directory.CreateDirectory(_DefaultPath);
@@ -368,7 +381,10 @@ namespace PLCCommunication.Mitsubishi
                 serializer.Serialize(sw, m_Setting ?? new SocketSetting());
             }
         }
-
+        /// <summary>
+        /// Save setting files with specific path.
+        /// </summary>
+        /// <param name="filePath">Path to save.</param>
         public void Save(string filePath)
         {
             FileInfo fi = new FileInfo(filePath);
@@ -491,7 +507,7 @@ namespace PLCCommunication.Mitsubishi
 
                 case EPLCProtocolFormat.Binary:
                     List<byte> binHeader = new List<byte>() { 0x50, 0x00, NetworkNo, PCNo, 0xFF, 0x03, 0x00 };
-                    List<byte> binData = new List<byte>(BitConverter.GetBytes(m_Setting.Timeout)) { 0x01, 0x14 };
+                    List<byte> binData = new List<byte>(BitConverter.GetBytes(m_Setting.Timeout).Take(2)) { 0x01, 0x14 };
 
                     if (data.Value is IEnumerable<bool> || dataType == typeof(bool))
                     {
@@ -565,7 +581,7 @@ namespace PLCCommunication.Mitsubishi
 
                 case EPLCProtocolFormat.Binary:
                     List<byte> binHeader = new List<byte>() { 0x50, 0x00, NetworkNo, PCNo, 0xFF, 0x03, 0x00 };
-                    List<byte> binData = new List<byte>(BitConverter.GetBytes(m_Setting.Timeout)) { 0x01, 0x04, 0x00, 0x00 };
+                    List<byte> binData = new List<byte>(BitConverter.GetBytes(m_Setting.Timeout).Take(2)) { 0x01, 0x04, 0x00, 0x00 };
                     binData.AddRange(PLCConverter.ConvertByteArrayFromAddress(data));
                     binData.AddRange(BitConverter.GetBytes(data.WordCount));
 
@@ -662,7 +678,7 @@ namespace PLCCommunication.Mitsubishi
                         break;
                     case EPLCProtocolFormat.Binary:
                         binHeader = new List<byte>() { 0x50, 0x00, NetworkNo, PCNo, 0xFF, 0x03, 0x00 };
-                        binData = new List<byte>(BitConverter.GetBytes(m_Setting.Timeout)) { 0x02, 0x14, 0x01, 0x00 };
+                        binData = new List<byte>(BitConverter.GetBytes(m_Setting.Timeout).Take(2)) { 0x02, 0x14, 0x01, 0x00 };
                         List<byte> binAddress = new List<byte>();
                         foreach (var boolData in boolDataList)
                         {
@@ -990,7 +1006,7 @@ namespace PLCCommunication.Mitsubishi
 
                 case EPLCProtocolFormat.Binary:
                     binHeader = new List<byte>() { 0x50, 0x00, NetworkNo, PCNo, 0xFF, 0x03, 0x00 };
-                    binData = new List<byte>(BitConverter.GetBytes(m_Setting.Timeout)) { 0x03, 0x04, 0x00, 0x00 };
+                    binData = new List<byte>(BitConverter.GetBytes(m_Setting.Timeout).Take(2)) { 0x03, 0x04, 0x00, 0x00 };
                     List<byte> binDWordAddress = new List<byte>();
                     List<byte> binWordAddress = new List<byte>();
 

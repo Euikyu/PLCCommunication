@@ -12,6 +12,7 @@ namespace PLCCommunication.Mitsubishi
     /// </summary>
     public enum EPLCDeviceCode
     {
+#pragma warning disable CS1591 // 공개된 형식 또는 멤버에 대한 XML 주석이 없습니다.
         M = 0x90,
         SM = 0x91,
         L = 0x92,
@@ -36,7 +37,9 @@ namespace PLCCommunication.Mitsubishi
         CS = 0xC4,
         CN = 0xC5,
         Z = 0xCC,
+#pragma warning restore CS1591 // 공개된 형식 또는 멤버에 대한 XML 주석이 없습니다.
     }
+
     /// <summary>
     /// Class related to PLC data to send.
     /// </summary>
@@ -86,7 +89,7 @@ namespace PLCCommunication.Mitsubishi
         }
 
         /// <summary>
-        /// Generate PLC data to write from this value & code & address.
+        /// Generate PLC data to write from this value &amp; code &amp; address.
         /// </summary>
         /// <param name="code">PLC device code to use.</param>
         /// <param name="address">Address to use.</param>
@@ -123,7 +126,7 @@ namespace PLCCommunication.Mitsubishi
         #endregion
 
         /// <summary>
-        /// Generate PLC data received from this address & code.
+        /// Generate PLC data received from this address &amp; code.
         /// </summary>
         /// <param name="receivedData">Received data from PLC.</param>
         /// <param name="code">Data's PLC device code.</param>
@@ -417,6 +420,11 @@ namespace PLCCommunication.Mitsubishi
         }
         #endregion
     }
+
+
+    /// <summary>
+    /// Class related to a converter on PLC's generic data. 
+    /// </summary>
     internal static class PLCConverter
     {
         #region Convert Data Methods
